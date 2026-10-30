@@ -1,0 +1,13 @@
+{
+  "name": "atss-print-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local print-bridge agent for ATSS POS: forwards ESC/POS bytes from the web app to a LAN thermal printer and triggers the cash drawer kick.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

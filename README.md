@@ -22,3 +22,8 @@ npm run format:check  # prettier --check
 npm test              # vitest run
 npm run test:watch    # vitest watch mode
 ```
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for setting up the production Supabase
+project and deploying the web app to Vercel.

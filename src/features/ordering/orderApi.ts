@@ -76,6 +76,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
     table_id: input.tableId,
     status: 'open',
     subtotal_sen: totals.subtotal_sen,
+    discount_sen: 0,
+    discount_reason: null,
     service_charge_sen: totals.service_charge_sen,
     sst_sen: totals.sst_sen,
     rounding_sen: totals.rounding_sen,
@@ -103,8 +105,12 @@ export async function updateOpenOrder(
   if (!existing) throw new Error(`Order not found: ${orderId}`)
 
   const subtotalSen = cartSubtotalSen(lines)
+  // A discount applied earlier shouldn't silently vanish when items change,
+  // but it also can't exceed the new (possibly smaller) subtotal.
+  const discountSen = Math.min(existing.discount_sen, subtotalSen)
   const totals = calculateTotals({
     subtotalSen,
+    discountSen,
     paymentMethod: 'duitnow_qr',
     settings,
   })
@@ -112,6 +118,7 @@ export async function updateOpenOrder(
   const updatedOrder: Order = {
     ...existing,
     subtotal_sen: totals.subtotal_sen,
+    discount_sen: totals.discount_sen,
     service_charge_sen: totals.service_charge_sen,
     sst_sen: totals.sst_sen,
     rounding_sen: totals.rounding_sen,
@@ -178,6 +185,71 @@ export async function voidOrder(
       order_no: order.order_no,
       previous_status: order.status,
       total_sen: order.total_sen,
+      reason: reason.trim(),
+    },
+    created_at: new Date().toISOString(),
+  }
+  await db.audit_log.put(audit)
+  await enqueue('audit_log', 'upsert', { ...audit })
+
+  return updatedOrder
+}
+
+/**
+ * CLAUDE.md section 7: "Voids and discounts: require manager/owner PIN and
+ * a reason; always logged in audit_log." Only open orders can be discounted
+ * — "paid orders cannot be edited, only voided." Recomputes service
+ * charge/SST/total from the (now discounted) subtotal, same as
+ * updateOpenOrder. Caller is responsible for the manager/owner PIN approval
+ * (see features/auth/pinLogin.ts) before calling this.
+ */
+export async function applyDiscount(
+  orderId: string,
+  approverStaffId: string,
+  discountSen: number,
+  reason: string,
+  settings: Settings,
+): Promise<Order> {
+  const order = await db.orders.get(orderId)
+  if (!order) throw new Error(`Order not found: ${orderId}`)
+  if (order.status !== 'open') throw new Error(`Order is not open (status: ${order.status})`)
+  if (!reason.trim()) throw new Error('A reason is required')
+  if (!Number.isInteger(discountSen) || discountSen < 0) {
+    throw new Error(`discountSen must be a non-negative integer, got: ${discountSen}`)
+  }
+  if (discountSen > order.subtotal_sen) {
+    throw new Error('Discount cannot exceed the subtotal')
+  }
+
+  const totals = calculateTotals({
+    subtotalSen: order.subtotal_sen,
+    discountSen,
+    paymentMethod: 'duitnow_qr',
+    settings,
+  })
+
+  const updatedOrder: Order = {
+    ...order,
+    discount_sen: totals.discount_sen,
+    discount_reason: discountSen > 0 ? reason.trim() : null,
+    service_charge_sen: totals.service_charge_sen,
+    sst_sen: totals.sst_sen,
+    rounding_sen: totals.rounding_sen,
+    total_sen: totals.total_sen,
+  }
+  await db.orders.put(updatedOrder)
+  await enqueue('orders', 'upsert', { ...updatedOrder })
+
+  const audit: AuditLog = {
+    id: crypto.randomUUID(),
+    merchant_id: order.merchant_id,
+    staff_id: approverStaffId,
+    action: 'apply_discount',
+    details: {
+      order_id: order.id,
+      order_no: order.order_no,
+      previous_discount_sen: order.discount_sen,
+      discount_sen: discountSen,
       reason: reason.trim(),
     },
     created_at: new Date().toISOString(),

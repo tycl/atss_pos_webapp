@@ -24,6 +24,8 @@ export interface SalesByCategory {
 
 // CLAUDE.md section 10 Phase 4: "Daily sales (Z) report: totals by payment
 // method, by item, by category, voids, SST and service charge collected."
+// Discounts given is included alongside these for the same reason section 7
+// groups discounts with voids: both reduce what the shop actually collected.
 export interface DailySalesReport {
   dateLabel: string
   totalSalesSen: number
@@ -33,6 +35,7 @@ export interface DailySalesReport {
   salesByCategory: SalesByCategory[]
   sstCollectedSen: number
   serviceChargeCollectedSen: number
+  discountGivenSen: number
   voidCount: number
   voidTotalSen: number
 }
@@ -121,6 +124,7 @@ export async function buildDailySalesReport(
     salesByCategory,
     sstCollectedSen: sumSen(paidOrders.map((order) => order.sst_sen)),
     serviceChargeCollectedSen: sumSen(paidOrders.map((order) => order.service_charge_sen)),
+    discountGivenSen: sumSen(paidOrders.map((order) => order.discount_sen)),
     voidCount: voidOrders.length,
     voidTotalSen: sumSen(voidOrders.map((order) => order.total_sen)),
   }

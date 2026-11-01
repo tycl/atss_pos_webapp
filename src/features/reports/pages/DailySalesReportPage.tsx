@@ -147,6 +147,10 @@ export function DailySalesReportPage() {
             <span>Service charge</span>
             <span>{formatSenAsRM(report.serviceChargeCollectedSen)}</span>
           </div>
+          <div className="flex justify-between text-sm text-slate-700">
+            <span>Discounts given</span>
+            <span>{formatSenAsRM(report.discountGivenSen)}</span>
+          </div>
         </div>
       </div>
     </div>

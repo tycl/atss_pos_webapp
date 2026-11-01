@@ -4,13 +4,12 @@
 --   supabase start
 --   supabase test db
 --
--- NOTE: these tests were written but could not be executed in the sandbox
--- that produced them — no Supabase CLI / Docker / psql was available there.
+-- NOTE: these tests have only been run on PGlite with a stand-in for pgTAP.
 -- Please run `supabase test db` and confirm all assertions pass before
 -- relying on this migration.
 
 begin;
-select plan(11);
+select plan(13);
 
 -- ----------------------------------------------------------------------------
 -- Setup (runs as the postgres role, which owns every table and bypasses RLS)
@@ -144,6 +143,25 @@ select is(
   (select count(*)::int from public.merchants),
   0,
   'an unauthenticated session sees no merchants at all'
+);
+
+-- ----------------------------------------------------------------------------
+-- Sign-up: an owner creates a merchant and can read it straight afterwards, the
+-- same two steps createMerchantWithOutlet() does
+-- ----------------------------------------------------------------------------
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
+
+select lives_ok(
+  $$insert into public.merchants (id, name)
+    values ('a0000000-0000-0000-0000-000000000002', 'Second Shop')$$,
+  'an owner can create a merchant'
+);
+
+select is(
+  (select name from public.merchants where id = 'a0000000-0000-0000-0000-000000000002'),
+  'Second Shop',
+  'the new merchant''s owner is linked to it and can read it'
 );
 
 select * from finish();

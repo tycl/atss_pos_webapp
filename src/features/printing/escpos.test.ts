@@ -32,6 +32,8 @@ function receipt(overrides: Partial<ReceiptData> = {}): ReceiptData {
       },
     ],
     subtotalSen: 800,
+    discountSen: 0,
+    discountReason: null,
     serviceChargeSen: 80,
     sstSen: 53,
     roundingSen: 2,
@@ -76,6 +78,17 @@ describe('buildReceiptBytes', () => {
     expect(text).not.toContain('Service charge')
     expect(text).not.toContain('SST')
     expect(text).not.toContain('Rounding')
+  })
+
+  it('omits the discount line when there is no discount', () => {
+    const text = decode(buildReceiptBytes(receipt()))
+    expect(text).not.toContain('Discount')
+  })
+
+  it('shows the discount amount and reason when a discount was applied', () => {
+    const text = decode(buildReceiptBytes(receipt({ discountSen: 200, discountReason: 'Loyalty' })))
+    expect(text).toContain('Discount (Loyalty)')
+    expect(text).toContain('-RM 2.00')
   })
 
   it('shows DuitNow QR payment without cash received/change lines', () => {

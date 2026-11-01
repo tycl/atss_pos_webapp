@@ -39,6 +39,8 @@ export async function buildReceiptData(orderId: string): Promise<ReceiptData> {
       note: line.note,
     })),
     subtotalSen: order.subtotal_sen,
+    discountSen: order.discount_sen,
+    discountReason: order.discount_reason,
     serviceChargeSen: order.service_charge_sen,
     sstSen: order.sst_sen,
     roundingSen: order.rounding_sen,

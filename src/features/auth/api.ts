@@ -32,18 +32,27 @@ export interface CreateMerchantInput {
  * outlet locally so this device is now "signed in" to that merchant.
  */
 export async function createMerchantWithOutlet(input: CreateMerchantInput) {
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .insert({
-      name: input.merchantName,
-      ssm_no: input.ssmNo ?? null,
-      sst_no: input.sstNo ?? null,
-      address: input.merchantAddress ?? null,
-      phone: input.merchantPhone ?? null,
-    })
-    .select()
-    .single()
+  // Insert and read back as two requests: chaining .select() onto the insert
+  // makes Postgres check the merchants SELECT policy before the
+  // link_owner_to_new_merchant trigger has granted membership, which fails
+  // with 42501. Generating the id here is what lets us find the row afterwards.
+  const merchantId = crypto.randomUUID()
+  const { error: merchantError } = await supabase.from('merchants').insert({
+    id: merchantId,
+    name: input.merchantName,
+    ssm_no: input.ssmNo ?? null,
+    sst_no: input.sstNo ?? null,
+    address: input.merchantAddress ?? null,
+    phone: input.merchantPhone ?? null,
+  })
   if (merchantError) throw merchantError
+
+  const { data: merchant, error: merchantReadError } = await supabase
+    .from('merchants')
+    .select()
+    .eq('id', merchantId)
+    .single()
+  if (merchantReadError) throw merchantReadError
 
   const { data: outlet, error: outletError } = await supabase
     .from('outlets')

@@ -93,6 +93,10 @@ export function buildReceiptBytes(
 
   parts.push(divider())
   parts.push(labelAmountLine('Subtotal', formatSenAsRM(data.subtotalSen)))
+  if (data.discountSen > 0) {
+    const label = data.discountReason ? `Discount (${data.discountReason})` : 'Discount'
+    parts.push(labelAmountLine(label, `-${formatSenAsRM(data.discountSen)}`))
+  }
   if (data.serviceChargeSen > 0) {
     parts.push(labelAmountLine('Service charge', formatSenAsRM(data.serviceChargeSen)))
   }

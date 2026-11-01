@@ -19,6 +19,8 @@ function order(overrides: Partial<Order> = {}): Order {
     table_id: null,
     status: 'paid',
     subtotal_sen: 1000,
+    discount_sen: 0,
+    discount_reason: null,
     service_charge_sen: 0,
     sst_sen: 0,
     rounding_sen: 0,

@@ -21,29 +21,43 @@ checks against.
 
 Creating a merchant (`insert into merchants`) is allowed for any
 authenticated user, and a trigger (`link_owner_to_new_merchant`)
-auto-grants them membership — this is the sign-up path from Phase 1's
-"owner sign-up" task, not yet wired to any UI.
+auto-grants them membership. Because that grant happens after the insert,
+the app must not chain `.select()` onto `insert into merchants`: Postgres
+checks the SELECT policy before the trigger runs and fails with 42501.
+`createMerchantWithOutlet()` inserts first and reads the row back separately.
 
-## Running this locally
+## Running this
 
-These files have **not** been executed anywhere — the environment this was
-written in had no Supabase CLI, Docker, or `psql`. Before trusting this
-migration, run it against the local stack:
+The migrations and `rls_isolation.test.sql` have been run on PGlite (real
+Postgres, with stubs for Supabase's `auth` schema and a small stand-in for
+pgTAP), but **not yet on a real Supabase instance or with real pgTAP**. Before
+trusting them with real data, run the tests against your project (see
+`DEPLOYMENT.md`) or the local stack. Install the CLI as described in
+`DEPLOYMENT.md`, then:
 
 ```sh
-npm install -g supabase   # or your preferred install method
 supabase init              # only if supabase/config.toml doesn't exist yet
 supabase start
-supabase test db
+supabase test db           # add --linked to target the linked project instead
 ```
 
 `supabase test db` runs every `*.test.sql` file under `tests/database` with
 pgTAP and reports pass/fail per assertion.
 
-## Known gap
+## Cross-reference consistency
 
-RLS guarantees a merchant can't read/write another merchant's rows, but
-there's no trigger yet enforcing that e.g. a `device`'s `outlet_id` actually
-belongs to the same `merchant_id` as the device row itself — a buggy (not
-malicious) write could create a row whose `merchant_id` and `outlet_id`
-disagree. Worth adding a consistency trigger before Phase 2 if this matters.
+RLS (above) guarantees a merchant can't read/write another merchant's rows,
+but it doesn't check that a row's *own* foreign keys agree with each other —
+e.g. a `device`'s `outlet_id` could point at an outlet belonging to a
+different merchant than the device row's own `merchant_id`. That would be a
+bug, not an attack (RLS already stops the attack case), but it would
+silently corrupt that row's reporting and scoping.
+
+`migrations/20261102000000_merchant_consistency_triggers.sql` closes this
+with a generic `assert_fk_merchant_matches(fk_column, ref_table)` trigger
+function, attached once per foreign key that crosses into another
+merchant-scoped table (devices → outlets, items → categories, orders →
+outlets/devices/tables/staff, etc.). Any insert/update where the referenced
+row's `merchant_id` disagrees with the new row's own `merchant_id` is
+rejected. A null FK (e.g. `orders.table_id` for takeaway orders) is always
+allowed through. See `tests/database/merchant_consistency.test.sql`.

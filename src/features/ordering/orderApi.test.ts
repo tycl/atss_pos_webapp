@@ -3,6 +3,7 @@ import type { CartLine } from '../../lib/cart'
 import { db } from '../../lib/db'
 import type { Settings } from '../../lib/types'
 import {
+  applyDiscount,
   generateOrderNo,
   getOrder,
   listOpenOrders,
@@ -209,6 +210,146 @@ describe('updateOpenOrder', () => {
 
   it('throws for an order that does not exist', async () => {
     await expect(updateOpenOrder('missing', [], allOffSettings)).rejects.toThrow()
+  })
+
+  it('clamps an existing discount down if the new subtotal is smaller', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis({ qty: 2 })], // subtotal 500
+      settings: allOffSettings,
+    })
+    await applyDiscount(order.id, 'manager-1', 400, 'Loyalty discount', allOffSettings)
+
+    const updated = await updateOpenOrder(order.id, [tehAis({ qty: 1 })], allOffSettings) // subtotal 250
+    expect(updated.subtotal_sen).toBe(250)
+    expect(updated.discount_sen).toBe(250)
+  })
+})
+
+describe('applyDiscount', () => {
+  it('reduces the total and writes an audit_log entry', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis()], // subtotal 500
+      settings: allOffSettings,
+    })
+
+    const updated = await applyDiscount(order.id, 'manager-1', 100, 'Regular customer', allOffSettings)
+    expect(updated.discount_sen).toBe(100)
+    expect(updated.discount_reason).toBe('Regular customer')
+    expect(updated.total_sen).toBe(400)
+    expect((await getOrder(order.id))?.total_sen).toBe(400)
+
+    const audit = await db.audit_log.toArray()
+    expect(audit).toHaveLength(1)
+    expect(audit[0]).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      staff_id: 'manager-1',
+      action: 'apply_discount',
+      details: {
+        order_id: order.id,
+        order_no: order.order_no,
+        discount_sen: 100,
+        reason: 'Regular customer',
+      },
+    })
+
+    const queuedTables = (await db.sync_queue.toArray()).map((q) => q.table)
+    expect(queuedTables).toContain('orders')
+    expect(queuedTables).toContain('audit_log')
+  })
+
+  it('clears the discount when set back to zero', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis()],
+      settings: allOffSettings,
+    })
+    await applyDiscount(order.id, 'manager-1', 100, 'Regular customer', allOffSettings)
+
+    const updated = await applyDiscount(order.id, 'manager-1', 0, 'Mistake', allOffSettings)
+    expect(updated.discount_sen).toBe(0)
+    expect(updated.discount_reason).toBeNull()
+    expect(updated.total_sen).toBe(500)
+  })
+
+  it('refuses a discount larger than the subtotal', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis()], // subtotal 500
+      settings: allOffSettings,
+    })
+
+    await expect(
+      applyDiscount(order.id, 'manager-1', 501, 'Too generous', allOffSettings),
+    ).rejects.toThrow('exceed the subtotal')
+  })
+
+  it('requires a non-blank reason', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis()],
+      settings: allOffSettings,
+    })
+
+    await expect(applyDiscount(order.id, 'manager-1', 100, '   ', allOffSettings)).rejects.toThrow(
+      'reason is required',
+    )
+  })
+
+  it('refuses to discount a paid order', async () => {
+    const order = await placeOrder({
+      merchantId: MERCHANT_ID,
+      outletId: OUTLET_ID,
+      deviceId: DEVICE_ID,
+      devicePrefix: 'D1',
+      staffId: STAFF_ID,
+      type: 'takeaway',
+      tableId: null,
+      lines: [tehAis()],
+      settings: allOffSettings,
+    })
+    await db.orders.put({ ...order, status: 'paid' })
+
+    await expect(
+      applyDiscount(order.id, 'manager-1', 100, 'Too late', allOffSettings),
+    ).rejects.toThrow('not open')
+  })
+
+  it('throws for an order that does not exist', async () => {
+    await expect(
+      applyDiscount('missing', 'manager-1', 100, 'reason', allOffSettings),
+    ).rejects.toThrow('not found')
   })
 })
 

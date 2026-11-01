@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { db } from '../../../lib/db'
+import { clearActiveMerchant, getActiveOutletId } from '../../../lib/localSession'
+import { useLiveQuery } from '../../../lib/useLiveQuery'
+import { ConfirmButton } from '../../menu/components/ConfirmButton'
 import { verifyStaffPin } from '../pinLogin'
 import { useStaffSession } from '../useStaffSession'
 
@@ -7,10 +11,23 @@ const KEYPAD_DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 
 
 export function StaffLoginPage() {
   const navigate = useNavigate()
-  const { login } = useStaffSession()
+  const { login, logout } = useStaffSession()
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+
+  const outletId = getActiveOutletId()
+  const outlet = useLiveQuery(
+    () => (outletId ? db.outlets.get(outletId).then((o) => o ?? null) : Promise.resolve(null)),
+    [outletId],
+    null,
+  )
+
+  function handleResetDevice() {
+    logout()
+    clearActiveMerchant()
+    navigate('/signup')
+  }
 
   async function submitPin(candidatePin: string) {
     setChecking(true)
@@ -48,6 +65,7 @@ export function StaffLoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-50 px-4">
+      {outlet && <p className="text-sm font-medium text-slate-500">{outlet.name}</p>}
       <h1 className="text-xl font-semibold text-slate-800">Enter your PIN</h1>
 
       <div className="flex gap-2" aria-label="PIN entry progress">
@@ -76,6 +94,12 @@ export function StaffLoginPage() {
           </button>
         ))}
       </div>
+
+      {outletId && (
+        <ConfirmButton onConfirm={handleResetDevice} className="text-xs text-slate-400 underline">
+          Reset this device
+        </ConfirmButton>
+      )}
     </div>
   )
 }

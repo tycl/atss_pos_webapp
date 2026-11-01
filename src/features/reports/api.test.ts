@@ -20,6 +20,8 @@ function order(overrides: Partial<Order> = {}): Order {
     table_id: null,
     status: 'paid',
     subtotal_sen: 1000,
+    discount_sen: 0,
+    discount_reason: null,
     service_charge_sen: 100,
     sst_sen: 66,
     rounding_sen: 0,
@@ -209,9 +211,21 @@ describe('buildDailySalesReport', () => {
       salesByCategory: [],
       sstCollectedSen: 0,
       serviceChargeCollectedSen: 0,
+      discountGivenSen: 0,
       voidCount: 0,
       voidTotalSen: 0,
     })
+  })
+
+  it('totals discounts given across today’s paid orders only', async () => {
+    const paid1 = order({ discount_sen: 100 })
+    const paid2 = order({ discount_sen: 50 })
+    const openOrder = order({ status: 'open', discount_sen: 999 })
+    await db.orders.bulkPut([paid1, paid2, openOrder])
+    await db.payments.bulkPut([payment(paid1.id), payment(paid2.id)])
+
+    const report = await buildDailySalesReport(OUTLET_ID, TODAY)
+    expect(report.discountGivenSen).toBe(150)
   })
 })
 

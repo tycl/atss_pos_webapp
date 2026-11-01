@@ -17,7 +17,8 @@ export interface ReceiptLineView {
 // Matches CLAUDE.md section 7's required receipt fields: "shop name, SSM
 // no., SST no. (if SST enabled), address, receipt no., date/time, cashier,
 // items with modifiers, subtotal, service charge, SST, rounding, total,
-// payment method, change."
+// payment method, change." Discount isn't in that list, but section 7 also
+// requires discounts to exist, so it's shown here too when one was applied.
 export interface ReceiptData {
   shopName: string
   ssmNo: string | null
@@ -29,6 +30,8 @@ export interface ReceiptData {
   cashierName: string
   lines: ReceiptLineView[]
   subtotalSen: number
+  discountSen: number
+  discountReason: string | null
   serviceChargeSen: number
   sstSen: number
   roundingSen: number

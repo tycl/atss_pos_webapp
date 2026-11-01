@@ -13,6 +13,8 @@ const receipt: ReceiptData = {
   cashierName: 'Alice',
   lines: [],
   subtotalSen: 0,
+  discountSen: 0,
+  discountReason: null,
   serviceChargeSen: 0,
   sstSen: 0,
   roundingSen: 0,

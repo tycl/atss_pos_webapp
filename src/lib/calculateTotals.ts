@@ -5,10 +5,15 @@ import type { PaymentMethod, Settings } from './types'
 // SST is computed on the service-charge-inclusive running total, matching
 // how Malaysian F&B typically stacks these two (SST on top of service
 // charge), consistent with reading the bullet as a sequential pipeline.
+// A manager/owner discount (section 7's "voids and discounts") slots in
+// right after subtotal, before service charge/SST, since both are normally
+// charged on the net-of-discount price.
 
 export interface CalculateTotalsInput {
   subtotalSen: number
   paymentMethod: PaymentMethod
+  /** Sen off the subtotal, applied before service charge/SST. Defaults to 0. */
+  discountSen?: number
   settings: Pick<
     Settings,
     | 'sst_enabled'
@@ -21,6 +26,7 @@ export interface CalculateTotalsInput {
 
 export interface CalculateTotalsResult {
   subtotal_sen: number
+  discount_sen: number
   service_charge_sen: number
   sst_sen: number
   rounding_sen: number
@@ -40,17 +46,26 @@ function roundToNearestFiveSen(sen: number): number {
 export function calculateTotals({
   subtotalSen,
   paymentMethod,
+  discountSen = 0,
   settings,
 }: CalculateTotalsInput): CalculateTotalsResult {
   if (!Number.isInteger(subtotalSen) || subtotalSen < 0) {
     throw new Error(`subtotalSen must be a non-negative integer, got: ${subtotalSen}`)
   }
+  if (!Number.isInteger(discountSen) || discountSen < 0) {
+    throw new Error(`discountSen must be a non-negative integer, got: ${discountSen}`)
+  }
+  if (discountSen > subtotalSen) {
+    throw new Error(`discountSen (${discountSen}) cannot exceed subtotalSen (${subtotalSen})`)
+  }
+
+  const afterDiscount = subtotalSen - discountSen
 
   const serviceChargeSen = settings.service_charge_enabled
-    ? applyRateBp(subtotalSen, settings.service_charge_rate_bp)
+    ? applyRateBp(afterDiscount, settings.service_charge_rate_bp)
     : 0
 
-  const afterServiceCharge = subtotalSen + serviceChargeSen
+  const afterServiceCharge = afterDiscount + serviceChargeSen
 
   const sstSen = settings.sst_enabled ? applyRateBp(afterServiceCharge, settings.sst_rate_bp) : 0
 
@@ -61,6 +76,7 @@ export function calculateTotals({
 
   return {
     subtotal_sen: subtotalSen,
+    discount_sen: discountSen,
     service_charge_sen: serviceChargeSen,
     sst_sen: sstSen,
     rounding_sen: roundingSen,

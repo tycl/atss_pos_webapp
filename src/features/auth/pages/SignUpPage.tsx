@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { signUpOwner } from '../api'
 
 export function SignUpPage() {
@@ -63,6 +63,13 @@ export function SignUpPage() {
         >
           {submitting ? 'Creating account…' : 'Sign up'}
         </button>
+
+        <p className="text-center text-sm text-slate-500">
+          Already have an account?{' '}
+          <Link to="/signin" className="underline">
+            Log in
+          </Link>
+        </p>
       </form>
     </div>
   )

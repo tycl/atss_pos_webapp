@@ -7,6 +7,7 @@ import { formatSenAsRM, parseRMToSen } from '../../../lib/money'
 import { useLiveQuery } from '../../../lib/useLiveQuery'
 import type { PaymentMethod } from '../../../lib/types'
 import { useStaffSession } from '../../auth/useStaffSession'
+import { DiscountModal } from '../../ordering/components/DiscountModal'
 import { getOrder, loadOrderAsCartLines } from '../../ordering/orderApi'
 import { buildReceiptData } from '../../printing/buildPrintData'
 import { createNetworkBridgeProvider } from '../../printing/networkBridgeProvider'
@@ -40,6 +41,7 @@ export function PaymentPage() {
   const [reference, setReference] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [discounting, setDiscounting] = useState(false)
 
   if (!staff) return <Navigate to="/login" replace />
   if (!orderId) return <Navigate to="/pos/open-orders" replace />
@@ -54,6 +56,7 @@ export function PaymentPage() {
 
   const totals = calculateTotals({
     subtotalSen: order.subtotal_sen,
+    discountSen: order.discount_sen,
     paymentMethod: method,
     settings,
   })
@@ -130,6 +133,12 @@ export function PaymentPage() {
               <span>Subtotal</span>
               <span>{formatSenAsRM(totals.subtotal_sen)}</span>
             </div>
+            {totals.discount_sen > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>Discount{order.discount_reason ? ` (${order.discount_reason})` : ''}</span>
+                <span>-{formatSenAsRM(totals.discount_sen)}</span>
+              </div>
+            )}
             {totals.service_charge_sen > 0 && (
               <div className="flex justify-between text-slate-600">
                 <span>Service charge</span>
@@ -154,6 +163,14 @@ export function PaymentPage() {
             </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setDiscounting(true)}
+          className="w-full rounded border border-slate-300 py-2 text-sm text-slate-700"
+        >
+          {order.discount_sen > 0 ? 'Edit discount' : 'Apply discount'}
+        </button>
 
         <div className="flex gap-2">
           <button
@@ -230,6 +247,15 @@ export function PaymentPage() {
           {submitting ? 'Processing…' : 'Confirm payment'}
         </button>
       </div>
+
+      {discounting && (
+        <DiscountModal
+          order={order}
+          onCancel={() => setDiscounting(false)}
+          onApplied={() => setDiscounting(false)}
+          settings={settings}
+        />
+      )}
     </div>
   )
 }

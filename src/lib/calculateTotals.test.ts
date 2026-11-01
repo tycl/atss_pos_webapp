@@ -18,6 +18,7 @@ describe('calculateTotals', () => {
     })
     expect(result).toEqual({
       subtotal_sen: 1000,
+      discount_sen: 0,
       service_charge_sen: 0,
       sst_sen: 0,
       rounding_sen: 0,
@@ -154,6 +155,7 @@ describe('calculateTotals', () => {
     })
     expect(result).toEqual({
       subtotal_sen: 0,
+      discount_sen: 0,
       service_charge_sen: 0,
       sst_sen: 0,
       rounding_sen: 0,
@@ -171,5 +173,59 @@ describe('calculateTotals', () => {
     expect(() =>
       calculateTotals({ subtotalSen: 10.5, paymentMethod: 'cash', settings: allOff }),
     ).toThrow()
+  })
+
+  describe('discount', () => {
+    it('defaults to no discount', () => {
+      const result = calculateTotals({ subtotalSen: 1000, paymentMethod: 'cash', settings: allOff })
+      expect(result.discount_sen).toBe(0)
+    })
+
+    it('reduces the subtotal before service charge and SST are applied', () => {
+      // 1000 - 200 discount = 800 -> +10% SC = 80 -> running 880 -> +6% SST = 53 (52.8 rounded)
+      const result = calculateTotals({
+        subtotalSen: 1000,
+        discountSen: 200,
+        paymentMethod: 'duitnow_qr',
+        settings: {
+          ...allOff,
+          service_charge_enabled: true,
+          service_charge_rate_bp: 1000,
+          sst_enabled: true,
+          sst_rate_bp: 600,
+        },
+      })
+      expect(result.discount_sen).toBe(200)
+      expect(result.service_charge_sen).toBe(80)
+      expect(result.sst_sen).toBe(53)
+      expect(result.total_sen).toBe(933)
+    })
+
+    it('a discount equal to the subtotal brings the total to zero when there is nothing else to charge', () => {
+      const result = calculateTotals({
+        subtotalSen: 1000,
+        discountSen: 1000,
+        paymentMethod: 'cash',
+        settings: allOff,
+      })
+      expect(result.total_sen).toBe(0)
+    })
+
+    it('rejects a discount larger than the subtotal', () => {
+      expect(() =>
+        calculateTotals({ subtotalSen: 500, discountSen: 501, paymentMethod: 'cash', settings: allOff }),
+      ).toThrow()
+    })
+
+    it('rejects a negative discount', () => {
+      expect(() =>
+        calculateTotals({
+          subtotalSen: 500,
+          discountSen: -1,
+          paymentMethod: 'cash',
+          settings: allOff,
+        }),
+      ).toThrow()
+    })
   })
 })

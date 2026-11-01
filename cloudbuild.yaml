@@ -1,0 +1,13 @@
+# Builds the web POS image with the Supabase values compiled in.
+# Usage is in DEPLOYMENT.md.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg=VITE_SUPABASE_URL=${_SUPABASE_URL}
+      - --build-arg=VITE_SUPABASE_ANON_KEY=${_SUPABASE_KEY}
+      - -t
+      - ${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}

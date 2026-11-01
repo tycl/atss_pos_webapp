@@ -29,6 +29,8 @@ function openOrder(overrides: Partial<Order> = {}): Order {
     table_id: null,
     status: 'open',
     subtotal_sen: 1203,
+    discount_sen: 0,
+    discount_reason: null,
     service_charge_sen: 0,
     sst_sen: 0,
     rounding_sen: 0,
@@ -103,6 +105,15 @@ describe('recordCashPayment', () => {
 
     const { payment } = await recordCashPayment(order.id, 1000, allOffSettings)
     expect(payment.change_sen).toBe(0)
+  })
+
+  it('carries a discount applied earlier through to the final total', async () => {
+    const order = openOrder({ subtotal_sen: 1000, discount_sen: 200, total_sen: 1000 })
+    await db.orders.put(order)
+
+    const { order: updated, payment } = await recordCashPayment(order.id, 800, allOffSettings)
+    expect(updated.total_sen).toBe(800)
+    expect(payment.amount_sen).toBe(800)
   })
 })
 

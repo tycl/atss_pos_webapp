@@ -11,12 +11,14 @@ async function finalizeOrderPayment(
 ): Promise<{ order: Order; payment: Payment }> {
   const totals = calculateTotals({
     subtotalSen: order.subtotal_sen,
+    discountSen: order.discount_sen,
     paymentMethod: method,
     settings,
   })
 
   const updatedOrder: Order = {
     ...order,
+    discount_sen: totals.discount_sen,
     service_charge_sen: totals.service_charge_sen,
     sst_sen: totals.sst_sen,
     rounding_sen: totals.rounding_sen,
@@ -64,6 +66,7 @@ export async function recordCashPayment(
 
   const totals = calculateTotals({
     subtotalSen: order.subtotal_sen,
+    discountSen: order.discount_sen,
     paymentMethod: 'cash',
     settings,
   })

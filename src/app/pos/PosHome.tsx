@@ -238,6 +238,11 @@ export function PosHome() {
               Reports
             </Link>
           )}
+          {staff.role === 'owner' && (
+            <Link to="/backoffice" className="underline">
+              Back office
+            </Link>
+          )}
           {device && (
             <ShiftControl
               merchantId={merchantId}

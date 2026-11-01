@@ -127,6 +127,8 @@ export interface Order {
   table_id: UUID | null
   status: OrderStatus
   subtotal_sen: number
+  discount_sen: number
+  discount_reason: string | null
   service_charge_sen: number
   sst_sen: number
   rounding_sen: number

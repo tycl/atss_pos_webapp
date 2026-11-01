@@ -57,6 +57,8 @@ beforeEach(async () => {
     table_id: 'table-1',
     status: 'paid',
     subtotal_sen: 800,
+    discount_sen: 100,
+    discount_reason: 'Regular customer',
     service_charge_sen: 80,
     sst_sen: 53,
     rounding_sen: 2,
@@ -122,6 +124,8 @@ describe('buildReceiptData', () => {
     expect(data.lines).toHaveLength(1)
     expect(data.lines[0]).toMatchObject({ name: 'Teh Ais', qty: 2, note: 'less ice' })
     expect(data.lines[0].modifiers).toEqual([{ name: 'Extra shot', priceSen: 150 }])
+    expect(data.discountSen).toBe(100)
+    expect(data.discountReason).toBe('Regular customer')
     expect(data.totalSen).toBe(935)
     expect(data.paymentMethod).toBe('cash')
     expect(data.cashReceivedSen).toBe(1000)

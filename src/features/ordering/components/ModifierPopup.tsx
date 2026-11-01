@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Button } from '../../../components/Button'
+import { Modal } from '../../../components/Modal'
 import type { CartLine } from '../../../lib/cart'
 import { formatSenAsRM } from '../../../lib/money'
 import type { Item, Modifier, ModifierGroup } from '../../../lib/types'
@@ -69,87 +71,77 @@ export function ModifierPopup({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-xl bg-white p-4 sm:rounded-xl">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">{item.name}</h2>
-          <span className="text-slate-500">{formatSenAsRM(item.price_sen)}</span>
-        </div>
+    <Modal>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-800">{item.name}</h2>
+        <span className="text-slate-500">{formatSenAsRM(item.price_sen)}</span>
+      </div>
 
-        <div className="space-y-4">
-          {groups.map(({ group, modifiers }) => (
-            <div key={group.id}>
-              <h3 className="mb-1 text-sm font-medium text-slate-700">
-                {group.name}
-                {group.required && <span className="text-red-600"> *</span>}
-                {group.max_select > 1 && (
-                  <span className="text-slate-400"> (up to {group.max_select})</span>
-                )}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {modifiers.map((modifier) => {
-                  const selected = (selections[group.id] ?? []).includes(modifier.id)
-                  return (
-                    <button
-                      key={modifier.id}
-                      type="button"
-                      onClick={() => toggleModifier(group, modifier.id)}
-                      className={`rounded-full border px-3 py-1.5 text-sm ${
-                        selected
-                          ? 'border-slate-800 bg-slate-800 text-white'
-                          : 'border-slate-300 text-slate-700'
-                      }`}
-                    >
-                      {modifier.name}
-                      {modifier.price_sen > 0 && ` (+${formatSenAsRM(modifier.price_sen)})`}
-                    </button>
-                  )
-                })}
-              </div>
+      <div className="space-y-4">
+        {groups.map(({ group, modifiers }) => (
+          <div key={group.id}>
+            <h3 className="mb-1 text-sm font-medium text-slate-700">
+              {group.name}
+              {group.required && <span className="text-red-600"> *</span>}
+              {group.max_select > 1 && (
+                <span className="text-slate-400"> (up to {group.max_select})</span>
+              )}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {modifiers.map((modifier) => {
+                const selected = (selections[group.id] ?? []).includes(modifier.id)
+                return (
+                  <button
+                    key={modifier.id}
+                    type="button"
+                    onClick={() => toggleModifier(group, modifier.id)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected
+                        ? 'border-primary-600 bg-primary-600 text-white'
+                        : 'border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    {modifier.name}
+                    {modifier.price_sen > 0 && ` (+${formatSenAsRM(modifier.price_sen)})`}
+                  </button>
+                )
+              })}
             </div>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-700">Quantity</span>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setQty((q) => Math.max(1, q - 1))}
-              className="h-11 w-11 rounded-full border border-slate-300 text-lg"
-            >
-              −
-            </button>
-            <span className="w-6 text-center">{qty}</span>
-            <button
-              type="button"
-              onClick={() => setQty((q) => q + 1)}
-              className="h-11 w-11 rounded-full border border-slate-300 text-lg"
-            >
-              +
-            </button>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-        <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-700">Quantity</span>
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={onCancel}
-            className="flex-1 rounded border border-slate-300 py-2 text-slate-700"
+            onClick={() => setQty((q) => Math.max(1, q - 1))}
+            className="h-11 w-11 rounded-full border border-slate-300 text-lg"
           >
-            Cancel
+            −
           </button>
+          <span className="w-6 text-center">{qty}</span>
           <button
             type="button"
-            onClick={handleConfirm}
-            className="flex-1 rounded bg-slate-800 py-2 text-white"
+            onClick={() => setQty((q) => q + 1)}
+            className="h-11 w-11 rounded-full border border-slate-300 text-lg"
           >
-            Add to cart
+            +
           </button>
         </div>
       </div>
-    </div>
+
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" size="md" fullWidth onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="primary" size="md" fullWidth onClick={handleConfirm}>
+          Add to cart
+        </Button>
+      </div>
+    </Modal>
   )
 }

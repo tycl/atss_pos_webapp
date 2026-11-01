@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '../../../components/Button'
 import { calculateTotals } from '../../../lib/calculateTotals'
 import type { CartLine } from '../../../lib/cart'
 import { cartSubtotalSen, cartLineTotalSen } from '../../../lib/cart'
@@ -76,14 +77,15 @@ export function CartPanel({
         </div>
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        size="lg"
+        className="m-3"
         disabled={lines.length === 0 || placing}
         onClick={onPlaceOrder}
-        className="m-3 rounded bg-slate-800 py-3 font-medium text-white disabled:bg-slate-300"
       >
         {placing ? 'Placing…' : placeOrderLabel}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -147,13 +149,14 @@ function CartLineRow({
         >
           +
         </button>
-        <button
-          type="button"
+        <Button
+          variant="danger-outline"
+          size="md"
+          className="ml-auto"
           onClick={() => onRemove(line.lineId)}
-          className="ml-auto px-3 py-2 text-xs text-red-600"
         >
           Remove
-        </button>
+        </Button>
       </div>
     </li>
   )

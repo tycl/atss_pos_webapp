@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '../../../components/Button'
 import { useLiveQuery } from '../../../lib/useLiveQuery'
 import { getActiveShift } from '../api'
 import { CloseShiftModal } from './CloseShiftModal'
@@ -25,13 +26,13 @@ export function ShiftControl({
   return (
     <>
       {shift ? (
-        <button type="button" onClick={() => setShowCloseModal(true)} className="underline">
+        <Button variant="outline" size="md" onClick={() => setShowCloseModal(true)}>
           Close shift
-        </button>
+        </Button>
       ) : (
-        <button type="button" onClick={() => setShowOpenModal(true)} className="underline">
+        <Button variant="outline" size="md" onClick={() => setShowOpenModal(true)}>
           Open shift
-        </button>
+        </Button>
       )}
 
       {showOpenModal && (

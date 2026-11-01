@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Button } from '../../components/Button'
 import {
   addCartLine,
   removeCartLine,
@@ -217,29 +218,45 @@ export function PosHome() {
   return (
     <div className="flex h-screen flex-col bg-slate-50">
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
-        <span className="font-semibold text-slate-800">ATSS POS</span>
-        <div className="flex items-center gap-3 text-sm text-slate-600">
+        <span className="font-semibold text-primary-700">ATSS POS</span>
+        <div className="flex items-center gap-2 text-sm text-slate-600">
           {resumeOrderId && (
             <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">
               Editing open order
-              <button type="button" onClick={resetOrderContext} className="ml-2 underline">
+              <button
+                type="button"
+                onClick={resetOrderContext}
+                className="ml-2 rounded px-1.5 py-0.5 underline hover:bg-amber-200"
+              >
                 cancel
               </button>
             </span>
           )}
-          <Link to="/pos/open-orders" className="underline">
+          <Link
+            to="/pos/open-orders"
+            className="inline-flex h-11 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 hover:bg-slate-50"
+          >
             Open tables
           </Link>
-          <Link to="/pos/orders" className="underline">
+          <Link
+            to="/pos/orders"
+            className="inline-flex h-11 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 hover:bg-slate-50"
+          >
             Recent orders
           </Link>
           {(staff.role === 'owner' || staff.role === 'manager') && (
-            <Link to="/reports/daily-sales" className="underline">
+            <Link
+              to="/reports/daily-sales"
+              className="inline-flex h-11 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 hover:bg-slate-50"
+            >
               Reports
             </Link>
           )}
           {staff.role === 'owner' && (
-            <Link to="/backoffice" className="underline">
+            <Link
+              to="/backoffice"
+              className="inline-flex h-11 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 hover:bg-slate-50"
+            >
               Back office
             </Link>
           )}
@@ -251,12 +268,12 @@ export function PosHome() {
               staffId={staff.id}
             />
           )}
-          <span>
+          <span className="px-2">
             {staff.name} ({staff.role})
           </span>
-          <button type="button" onClick={logout} className="underline">
+          <Button variant="outline" size="md" onClick={logout}>
             Log out
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -16,10 +16,10 @@ export function CategoryTabs({
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
+          className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
             category.id === selectedCategoryId
-              ? 'bg-slate-800 text-white'
-              : 'bg-slate-100 text-slate-700'
+              ? 'bg-primary-600 text-white'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
           {category.name}

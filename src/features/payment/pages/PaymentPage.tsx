@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Button } from '../../../components/Button'
+import { Card } from '../../../components/Card'
 import { LoadingState } from '../../../components/LoadingState'
+import { NumberPad } from '../../../components/NumberPad'
 import { calculateTotals } from '../../../lib/calculateTotals'
 import { getActiveOutletId } from '../../../lib/localSession'
 import { formatSenAsRM, parseRMToSen } from '../../../lib/money'
@@ -107,12 +110,27 @@ export function PaymentPage() {
       ? cashReceivedSen !== null && cashReceivedSen >= totals.total_sen
       : reference.trim() !== ''
 
+  function appendCashDigit(digit: string) {
+    const decimalIndex = cashInput.indexOf('.')
+    if (decimalIndex !== -1 && cashInput.length - decimalIndex > 2) return
+    setCashInput((s) => s + digit)
+  }
+
+  function appendCashDecimal() {
+    if (cashInput.includes('.')) return
+    setCashInput((s) => (s === '' ? '0.' : s + '.'))
+  }
+
+  function backspaceCash() {
+    setCashInput((s) => s.slice(0, -1))
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6">
       <div className="mx-auto max-w-md space-y-4">
         <h1 className="text-xl font-semibold text-slate-800">Pay order {order.order_no}</h1>
 
-        <div className="rounded-lg bg-white p-4 shadow">
+        <Card>
           <ul className="space-y-1 text-sm text-slate-700">
             {lines.map((line) => (
               <li key={line.lineId} className="flex justify-between">
@@ -162,15 +180,11 @@ export function PaymentPage() {
               <span>{formatSenAsRM(totals.total_sen)}</span>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <button
-          type="button"
-          onClick={() => setDiscounting(true)}
-          className="w-full rounded border border-slate-300 py-2 text-sm text-slate-700"
-        >
+        <Button variant="outline" size="md" fullWidth onClick={() => setDiscounting(true)}>
           {order.discount_sen > 0 ? 'Edit discount' : 'Apply discount'}
-        </button>
+        </Button>
 
         <div className="flex gap-2">
           <button
@@ -178,7 +192,7 @@ export function PaymentPage() {
             onClick={() => setMethod('cash')}
             className={`flex-1 rounded border py-2 text-sm font-medium ${
               method === 'cash'
-                ? 'border-slate-800 bg-slate-800 text-white'
+                ? 'border-primary-600 bg-primary-600 text-white'
                 : 'border-slate-300 text-slate-700'
             }`}
           >
@@ -189,7 +203,7 @@ export function PaymentPage() {
             onClick={() => setMethod('duitnow_qr')}
             className={`flex-1 rounded border py-2 text-sm font-medium ${
               method === 'duitnow_qr'
-                ? 'border-slate-800 bg-slate-800 text-white'
+                ? 'border-primary-600 bg-primary-600 text-white'
                 : 'border-slate-300 text-slate-700'
             }`}
           >
@@ -198,22 +212,25 @@ export function PaymentPage() {
         </div>
 
         {method === 'cash' ? (
-          <div className="space-y-2 rounded-lg bg-white p-4 shadow">
-            <label className="block text-sm font-medium text-slate-700">
-              Amount received (RM)
-              <input
-                value={cashInput}
-                onChange={(e) => setCashInput(e.target.value)}
-                placeholder="0.00"
-                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-lg"
-              />
-            </label>
+          <Card className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Amount received</p>
+              <p className="text-3xl font-semibold text-slate-800">
+                RM {cashInput === '' ? '0.00' : cashInput}
+              </p>
+            </div>
             {changeSen !== null && changeSen >= 0 && (
               <p className="text-sm text-slate-600">Change: {formatSenAsRM(changeSen)}</p>
             )}
-          </div>
+            <NumberPad
+              onDigit={appendCashDigit}
+              onBackspace={backspaceCash}
+              onDecimal={appendCashDecimal}
+              disabled={submitting}
+            />
+          </Card>
         ) : (
-          <div className="space-y-2 rounded-lg bg-white p-4 shadow">
+          <Card className="space-y-2">
             {settings.duitnow_qr_url ? (
               <img
                 src={settings.duitnow_qr_url}
@@ -233,19 +250,20 @@ export function PaymentPage() {
                 className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
               />
             </label>
-          </div>
+          </Card>
         )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
           disabled={!canConfirm || submitting}
           onClick={() => void handleConfirm()}
-          className="w-full rounded bg-slate-800 py-3 font-medium text-white disabled:bg-slate-300"
         >
           {submitting ? 'Processing…' : 'Confirm payment'}
-        </button>
+        </Button>
       </div>
 
       {discounting && (

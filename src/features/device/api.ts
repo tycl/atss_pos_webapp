@@ -20,10 +20,19 @@ export async function ensureActiveDevice(merchantId: string, outletId: string): 
 
   inFlight = (async () => {
     try {
+      // The cached device id can outlive the merchant/outlet it belonged to
+      // — e.g. "Reset this device" (StaffLoginPage) clears the active
+      // merchant/outlet but not this device row, and a later sign-in to a
+      // *different* shop on the same browser would otherwise silently keep
+      // reusing it, producing orders whose device_id belongs to the wrong
+      // merchant. Only reuse it if it still matches the merchant/outlet
+      // we're actually active on right now.
       const existingId = getActiveDeviceId()
       if (existingId) {
         const existing = await db.devices.get(existingId)
-        if (existing) return existing
+        if (existing && existing.merchant_id === merchantId && existing.outlet_id === outletId) {
+          return existing
+        }
       }
 
       const deviceCount = await db.devices.where({ outlet_id: outletId }).count()

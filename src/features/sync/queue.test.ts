@@ -119,6 +119,29 @@ describe('drainOnce', () => {
     expect(remaining[1].attempts).toBe(0)
   })
 
+  it('does not throw if recording the failure itself fails (e.g. a broken IndexedDB connection)', async () => {
+    const upsert = vi.fn().mockResolvedValue({ error: new Error('offline') })
+    fromMock.mockReturnValue({ upsert })
+
+    await enqueue('staff', 'upsert', { id: 's1' })
+
+    const updateSpy = vi
+      .spyOn(db.sync_queue, 'update')
+      .mockRejectedValueOnce(new Error('idb connection is closing'))
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await drainOnce()
+
+    expect(result).toEqual({ pushed: 0, remaining: 1 })
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'sync queue: could not record a failed push',
+      expect.objectContaining({ itemId: expect.any(String) }),
+    )
+
+    updateSpy.mockRestore()
+    consoleErrorSpy.mockRestore()
+  })
+
   it('does nothing when the queue is empty', async () => {
     const result = await drainOnce()
     expect(result).toEqual({ pushed: 0, remaining: 0 })

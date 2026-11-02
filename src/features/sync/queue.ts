@@ -81,10 +81,25 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
           await db.sync_queue.delete(item.id)
           pushed++
         } catch (err) {
-          await db.sync_queue.update(item.id, {
-            attempts: item.attempts + 1,
-            last_error: err instanceof Error ? err.message : String(err),
-          })
+          try {
+            await db.sync_queue.update(item.id, {
+              attempts: item.attempts + 1,
+              last_error: err instanceof Error ? err.message : String(err),
+            })
+          } catch (recordErr) {
+            // Recording the failure is itself a Dexie write and can fail on
+            // its own (e.g. a stale IndexedDB connection) — if it throws
+            // uncaught here, the ORIGINAL push error (err) never gets
+            // recorded and this escapes to the sync manager's outer catch,
+            // which just logs and retries forever with no record of why.
+            // Swallow it here so the item stays queued for a normal retry
+            // next cycle instead of silently wedging the whole loop.
+            console.error('sync queue: could not record a failed push', {
+              itemId: item.id,
+              pushError: err,
+              recordError: recordErr,
+            })
+          }
           break
         }
       }

@@ -38,6 +38,27 @@ describe('ensureActiveDevice', () => {
     expect(device.receipt_prefix).toBe('D1')
   })
 
+  it('creates a new device instead of reusing one cached for a different merchant', async () => {
+    const first = await ensureActiveDevice('merchant-1', 'outlet-1')
+
+    const second = await ensureActiveDevice('merchant-2', 'outlet-2')
+
+    expect(second.id).not.toBe(first.id)
+    expect(second.merchant_id).toBe('merchant-2')
+    expect(second.outlet_id).toBe('outlet-2')
+    expect(getActiveDeviceId()).toBe(second.id)
+    expect(await db.devices.count()).toBe(2)
+  })
+
+  it('creates a new device instead of reusing one cached for a different outlet of the same merchant', async () => {
+    const first = await ensureActiveDevice('merchant-1', 'outlet-1')
+
+    const second = await ensureActiveDevice('merchant-1', 'outlet-2')
+
+    expect(second.id).not.toBe(first.id)
+    expect(second.outlet_id).toBe('outlet-2')
+  })
+
   it('creates only one device when called concurrently (e.g. StrictMode double-invoke)', async () => {
     const [first, second] = await Promise.all([
       ensureActiveDevice('merchant-1', 'outlet-1'),

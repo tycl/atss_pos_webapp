@@ -79,10 +79,39 @@ export async function pushOne(item: SyncQueueItem): Promise<void> {
 let drainInFlight: Promise<{ pushed: number; remaining: number }> | null = null
 
 /**
- * Pushes every queued item to Supabase, oldest first. Stops at the first
- * failure (keeping queue order — section 8's "device's version wins" relies
- * on changes landing in the order they happened) and leaves it in the queue
- * with its attempts/error recorded for the next retry.
+ * Supabase/PostgREST errors are plain objects, not Error instances, so
+ * `err instanceof Error` is false for them and `String(err)` collapses to
+ * the useless "[object Object]" — this pulls out whatever real message is
+ * actually there instead.
+ */
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message: unknown }).message
+    if (typeof message === 'string') return message
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
+// After this many failed attempts, an item is treated as permanently stuck
+// (e.g. it was queued under an auth session that's since changed, or
+// references data that no longer exists) rather than a transient blip —
+// see MAX_ATTEMPTS_BEFORE_SKIP's use in drainOnce below.
+const MAX_ATTEMPTS_BEFORE_SKIP = 5
+
+/**
+ * Pushes every queued item to Supabase, oldest first. Normally stops at the
+ * first failure (keeping queue order — section 8's "device's version wins"
+ * relies on changes landing in the order they happened), since a fresh
+ * failure is usually just "we're offline" and every later item would fail
+ * the same way anyway. But once an item has failed MAX_ATTEMPTS_BEFORE_SKIP
+ * times, it's treated as permanently stuck and skipped instead of stopping
+ * the batch — it stays in the queue and is still retried on later cycles,
+ * it just no longer blocks every other item behind it forever.
  */
 export async function drainOnce(): Promise<{ pushed: number; remaining: number }> {
   if (drainInFlight) return drainInFlight
@@ -98,11 +127,9 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
           await db.sync_queue.delete(item.id)
           pushed++
         } catch (err) {
+          const attempts = item.attempts + 1
           try {
-            await db.sync_queue.update(item.id, {
-              attempts: item.attempts + 1,
-              last_error: err instanceof Error ? err.message : String(err),
-            })
+            await db.sync_queue.update(item.id, { attempts, last_error: errorMessage(err) })
           } catch (recordErr) {
             // Recording the failure is itself a Dexie write and can fail on
             // its own (e.g. a stale IndexedDB connection) — if it throws
@@ -117,6 +144,8 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
               recordError: recordErr,
             })
           }
+
+          if (attempts >= MAX_ATTEMPTS_BEFORE_SKIP) continue
           break
         }
       }

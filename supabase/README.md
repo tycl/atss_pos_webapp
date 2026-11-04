@@ -61,3 +61,12 @@ outlets/devices/tables/staff, etc.). Any insert/update where the referenced
 row's `merchant_id` disagrees with the new row's own `merchant_id` is
 rejected. A null FK (e.g. `orders.table_id` for takeaway orders) is always
 allowed through. See `tests/database/merchant_consistency.test.sql`.
+
+The trigger function runs `security definer` (added in
+`migrations/20261105000000_fk_merchant_matches_security_definer.sql`) so its
+own lookup of the referenced row always sees it, regardless of whether RLS
+would hide that row from whoever's making the request. Without this, a
+session with no access to the referenced row got a misleading "references
+missing X.id" instead of the real reason — the write was always correctly
+rejected either way, this only fixes what the error says. See
+`tests/database/fk_merchant_matches_rls.test.sql`.

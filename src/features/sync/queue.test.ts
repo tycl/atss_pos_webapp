@@ -200,6 +200,50 @@ describe('drainOnce', () => {
     consoleErrorSpy.mockRestore()
   })
 
+  it('records the actual message from a non-Error (PostgREST-style) rejection instead of "[object Object]"', async () => {
+    const upsert = vi
+      .fn()
+      .mockResolvedValue({ error: { message: 'new row violates row-level security policy' } })
+    fromMock.mockReturnValue({ upsert })
+
+    await enqueue('staff', 'upsert', { id: 's1' })
+    await drainOnce()
+
+    const [item] = await db.sync_queue.orderBy('seq').toArray()
+    expect(item.last_error).toBe('new row violates row-level security policy')
+  })
+
+  it('skips an item that has already failed many times, instead of blocking everything behind it', async () => {
+    const upsert = vi.fn((payload: { id: string }) =>
+      payload.id === 'stuck'
+        ? Promise.resolve({ error: new Error('still broken') })
+        : Promise.resolve({ error: null }),
+    )
+    fromMock.mockReturnValue({ upsert })
+
+    // Already failed four times (e.g. it was queued under a session that no
+    // longer has access to this data) — one more failure reaches the limit.
+    await db.sync_queue.add({
+      id: 'stuck-queue-item',
+      table: 'staff',
+      op: 'upsert',
+      payload: { id: 'stuck' },
+      created_at: new Date().toISOString(),
+      seq: 1,
+      attempts: 4,
+      last_error: 'still broken',
+    })
+    await enqueue('staff', 'upsert', { id: 'fresh' })
+
+    const result = await drainOnce()
+
+    expect(result).toEqual({ pushed: 1, remaining: 1 })
+    expect(upsert).toHaveBeenCalledWith({ id: 'fresh' })
+
+    const stuckItem = await db.sync_queue.get('stuck-queue-item')
+    expect(stuckItem?.attempts).toBe(5)
+  })
+
   it('does nothing when the queue is empty', async () => {
     const result = await drainOnce()
     expect(result).toEqual({ pushed: 0, remaining: 0 })

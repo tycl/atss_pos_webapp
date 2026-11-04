@@ -1,4 +1,5 @@
 import { db } from '../../lib/db'
+import { getActiveMerchantId } from '../../lib/localSession'
 import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useOnlineStatus } from './useOnlineStatus'
 
@@ -6,6 +7,25 @@ import { useOnlineStatus } from './useOnlineStatus'
 export function SyncStatusIndicator() {
   const online = useOnlineStatus()
   const pending = useLiveQuery(() => db.sync_queue.count(), [], 0)
+  const plan = useLiveQuery(
+    () => {
+      const merchantId = getActiveMerchantId()
+      return merchantId
+        ? db.merchants.get(merchantId).then((m) => m?.plan ?? null)
+        : Promise.resolve(null)
+    },
+    [],
+    null,
+  )
+
+  if (plan === 'basic') {
+    return (
+      <div className="fixed bottom-3 right-3 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow">
+        <span className="h-2 w-2 rounded-full bg-slate-400" aria-hidden="true" />
+        <span>Basic plan · sync disabled</span>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed bottom-3 right-3 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow">

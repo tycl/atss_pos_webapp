@@ -1,6 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../lib/db'
-import { drainOnce, enqueue, getPendingCount, pushOne } from './queue'
+import { clearActiveMerchant, setActiveMerchantId } from '../../lib/localSession'
+import type { Merchant } from '../../lib/types'
+import {
+  drainOnce,
+  enqueue,
+  getPendingCount,
+  isSyncDisabledForActiveMerchant,
+  onQueueChanged,
+  pushOne,
+} from './queue'
+
+function makeMerchant(overrides: Partial<Merchant>): Merchant {
+  return {
+    id: 'merchant-1',
+    name: 'Test Shop',
+    ssm_no: null,
+    sst_no: null,
+    address: null,
+    phone: null,
+    logo_url: null,
+    plan: 'standard',
+    status: 'active',
+    subscription_started_at: null,
+    subscription_expires_at: null,
+    ...overrides,
+  }
+}
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 
@@ -20,6 +46,8 @@ function makeDeleteBuilder(result: { error: unknown }) {
 beforeEach(async () => {
   fromMock.mockReset()
   await db.sync_queue.clear()
+  await db.merchants.clear()
+  clearActiveMerchant()
 })
 
 describe('enqueue / getPendingCount', () => {
@@ -27,6 +55,36 @@ describe('enqueue / getPendingCount', () => {
     expect(await getPendingCount()).toBe(0)
     await enqueue('staff', 'upsert', { id: 's1' })
     expect(await getPendingCount()).toBe(1)
+  })
+})
+
+describe('isSyncDisabledForActiveMerchant / enqueue plan gating', () => {
+  it('is not disabled when no merchant is active yet (e.g. mid-onboarding)', async () => {
+    expect(await isSyncDisabledForActiveMerchant()).toBe(false)
+  })
+
+  it('is not disabled for a standard-plan merchant', async () => {
+    await db.merchants.put(makeMerchant({ plan: 'standard' }))
+    setActiveMerchantId('merchant-1')
+
+    expect(await isSyncDisabledForActiveMerchant()).toBe(false)
+    await enqueue('staff', 'upsert', { id: 's1' })
+    expect(await getPendingCount()).toBe(1)
+  })
+
+  it('is disabled for a basic-plan merchant, and enqueue becomes a no-op', async () => {
+    await db.merchants.put(makeMerchant({ plan: 'basic' }))
+    setActiveMerchantId('merchant-1')
+
+    expect(await isSyncDisabledForActiveMerchant()).toBe(true)
+
+    const listener = vi.fn()
+    const unsubscribe = onQueueChanged(listener)
+    await enqueue('staff', 'upsert', { id: 's1' })
+    unsubscribe()
+
+    expect(await getPendingCount()).toBe(0)
+    expect(listener).not.toHaveBeenCalled()
   })
 })
 

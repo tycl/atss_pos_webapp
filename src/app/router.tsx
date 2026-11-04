@@ -14,6 +14,9 @@ import { StaffManagementPage } from '../features/staff/pages/StaffManagementPage
 import { TablesManagementPage } from '../features/tables/pages/TablesManagementPage'
 import { BackofficeHome } from './backoffice/BackofficeHome'
 import { PosHome } from './pos/PosHome'
+import { PlatformAdminHome } from './platform-admin/PlatformAdminHome'
+import { PlatformAdminSignInPage } from './platform-admin/PlatformAdminSignInPage'
+import { RequirePlatformAdmin } from './platform-admin/RequirePlatformAdmin'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -32,4 +35,13 @@ export const router = createBrowserRouter([
   { path: '/backoffice/settings', element: <OutletSettingsPage /> },
   { path: '/backoffice/staff', element: <StaffManagementPage /> },
   { path: '/backoffice/dashboard', element: <OwnerDashboardPage /> },
+  { path: '/platform-admin/signin', element: <PlatformAdminSignInPage /> },
+  {
+    path: '/platform-admin',
+    element: (
+      <RequirePlatformAdmin>
+        <PlatformAdminHome />
+      </RequirePlatformAdmin>
+    ),
+  },
 ])

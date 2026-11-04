@@ -9,10 +9,10 @@ export type OrderType = 'dine_in' | 'takeaway'
 export type OrderStatus = 'open' | 'paid' | 'void'
 export type OrderLineStatus = 'active' | 'void'
 export type PaymentMethod = 'cash' | 'duitnow_qr'
-// Not specified in CLAUDE.md yet — kept as free-form strings until the
-// subscription plan/status values are decided.
-export type MerchantPlan = string
-export type MerchantStatus = string
+// 'basic' = device-only, never syncs to Supabase. 'standard' = syncs as
+// normal (see src/features/sync/queue.ts's enqueue() gate).
+export type MerchantPlan = 'basic' | 'standard'
+export type MerchantStatus = 'active' | 'suspended'
 
 export interface Merchant {
   id: UUID
@@ -24,6 +24,10 @@ export interface Merchant {
   logo_url: string | null
   plan: MerchantPlan
   status: MerchantStatus
+  // Null = no subscription period set yet. Not enforced against — the
+  // platform-admin dashboard just flags an expired merchant for manual review.
+  subscription_started_at: ISODateTime | null
+  subscription_expires_at: ISODateTime | null
 }
 
 export interface Outlet {

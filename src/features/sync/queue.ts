@@ -1,4 +1,5 @@
 import { db } from '../../lib/db'
+import { getActiveMerchantId } from '../../lib/localSession'
 import { nextSeq } from '../../lib/sequence'
 import { supabase } from '../../lib/supabase'
 import type { SyncOp, SyncQueueItem } from '../../lib/types'
@@ -13,11 +14,27 @@ export function onQueueChanged(listener: QueueChangedListener): () => void {
 }
 
 /**
+ * Basic-plan merchants are device-only and must never sync to Supabase. No
+ * active merchant yet (e.g. mid-onboarding, before sign-up finishes) is not
+ * treated as Basic — there's nothing to gate against yet.
+ */
+export async function isSyncDisabledForActiveMerchant(): Promise<boolean> {
+  const merchantId = getActiveMerchantId()
+  if (!merchantId) return false
+  const merchant = await db.merchants.get(merchantId)
+  return merchant?.plan === 'basic'
+}
+
+/**
  * Enqueues a pending push to Supabase. Call this AFTER the corresponding
  * Dexie write — every action writes to Dexie first (CLAUDE.md section 8),
- * and this queue is what eventually pushes it to the cloud.
+ * and this queue is what eventually pushes it to the cloud. A no-op for
+ * Basic-plan merchants, so sync_queue never grows for a device that will
+ * never drain it.
  */
 export async function enqueue(table: string, op: SyncOp, payload: Record<string, unknown>) {
+  if (await isSyncDisabledForActiveMerchant()) return
+
   const item: SyncQueueItem = {
     id: crypto.randomUUID(),
     table,

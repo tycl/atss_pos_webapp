@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import {
   addCartLine,
+  cartSubtotalSen,
   removeCartLine,
   updateCartLineNote,
   updateCartLineQty,
@@ -11,6 +12,7 @@ import {
 import { catchAsync } from '../../lib/catchAsync'
 import { db } from '../../lib/db'
 import { getActiveMerchantId, getActiveOutletId } from '../../lib/localSession'
+import { formatSenAsRM } from '../../lib/money'
 import type { Device, Item, ModifierGroup, OrderType } from '../../lib/types'
 import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useStaffSession } from '../../features/auth/useStaffSession'
@@ -92,6 +94,10 @@ export function PosHome() {
   const [placeError, setPlaceError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [printWarning, setPrintWarning] = useState<string | null>(null)
+  // Below `md` there's no room for an always-visible cart sidebar (see
+  // CLAUDE.md's "any device with a modern browser" — phones included), so
+  // the cart lives behind this toggle and a floating summary bar instead.
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
 
   const resumeOrderId = locationState.resumeOrderId ?? null
   useEffect(() => {
@@ -107,6 +113,7 @@ export function PosHome() {
   const visibleItems = items.filter(
     (item) => item.active && item.category_id === effectiveCategoryId,
   )
+  const cartItemCount = cart.reduce((n, line) => n + line.qty, 0)
 
   async function handleItemClick(item: Item) {
     let groupIds: string[]
@@ -145,6 +152,7 @@ export function PosHome() {
 
   function resetOrderContext() {
     setCart([])
+    setMobileCartOpen(false)
     navigate('/pos', { replace: true, state: {} })
   }
 
@@ -219,7 +227,7 @@ export function PosHome() {
     <div className="flex h-screen flex-col bg-slate-50">
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
         <span className="font-semibold text-primary-700">ATSS POS</span>
-        <div className="flex items-center gap-2 text-sm text-slate-600">
+        <div className="flex flex-wrap items-center gap-2 gap-y-2 text-sm text-slate-600">
           {resumeOrderId && (
             <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">
               Editing open order
@@ -302,7 +310,7 @@ export function PosHome() {
             selectedCategoryId={effectiveCategoryId}
             onSelect={setSelectedCategoryId}
           />
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
             {categories.length === 0 ? (
               <p className="p-6 text-sm text-slate-500">
                 No menu set up yet. Add categories and items from the back office.
@@ -313,7 +321,7 @@ export function PosHome() {
           </div>
         </div>
 
-        <div className="w-80 shrink-0">
+        <div className="hidden w-80 shrink-0 md:block">
           <CartPanel
             lines={cart}
             settings={settings}
@@ -328,6 +336,50 @@ export function PosHome() {
           />
         </div>
       </div>
+
+      {cartItemCount > 0 && !mobileCartOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-between rounded-xl bg-primary-600 px-4 py-3 text-white shadow-lg md:hidden"
+        >
+          <span className="font-medium">
+            {cartItemCount} item{cartItemCount !== 1 ? 's' : ''} in cart
+          </span>
+          <span className="font-semibold">{formatSenAsRM(cartSubtotalSen(cart))}</span>
+        </button>
+      )}
+
+      {mobileCartOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white md:hidden">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h2 className="text-lg font-semibold text-slate-800">Cart</h2>
+            <button
+              type="button"
+              onClick={() => setMobileCartOpen(false)}
+              className="text-sm text-slate-600 underline"
+            >
+              Close
+            </button>
+          </div>
+          <div className="min-h-0 flex-1">
+            <CartPanel
+              lines={cart}
+              settings={settings}
+              onUpdateQty={(lineId, qty) =>
+                setCart((lines) => updateCartLineQty(lines, lineId, qty))
+              }
+              onUpdateNote={(lineId, note) =>
+                setCart((lines) => updateCartLineNote(lines, lineId, note))
+              }
+              onRemove={(lineId) => setCart((lines) => removeCartLine(lines, lineId))}
+              onPlaceOrder={() => void handlePlaceOrderClick()}
+              placeOrderLabel={resumeOrderId ? 'Update order' : 'Place order'}
+              placing={placing}
+            />
+          </div>
+        </div>
+      )}
 
       {popupItem && (
         <ModifierPopup

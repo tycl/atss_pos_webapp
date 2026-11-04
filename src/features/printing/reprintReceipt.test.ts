@@ -26,6 +26,8 @@ beforeEach(async () => {
     logo_url: null,
     plan: null,
     status: null,
+    subscription_started_at: null,
+    subscription_expires_at: null,
   })
   await db.outlets.put({
     id: 'o1',

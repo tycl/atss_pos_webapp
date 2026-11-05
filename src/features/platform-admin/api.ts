@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import type { Merchant, MerchantPlan, MerchantStatus } from '../../lib/types'
+import type { Device, Merchant, MerchantPlan, MerchantStatus } from '../../lib/types'
 
 export interface MerchantWithCounts extends Merchant {
   outletCount: number
@@ -39,14 +39,40 @@ export async function listMerchantsWithCounts(): Promise<MerchantWithCounts[]> {
 
   const { data: devices, error: devicesError } = await supabase
     .from('devices')
-    .select('merchant_id')
+    .select('merchant_id, active')
   if (devicesError) throw devicesError
 
   return merchants.map((merchant) => ({
     ...merchant,
     outletCount: outlets.filter((o) => o.merchant_id === merchant.id).length,
-    deviceCount: devices.filter((d) => d.merchant_id === merchant.id).length,
+    // Only active devices count — a merchant with a pile of stale rows from
+    // testing/incognito/cache-clears (see the active-flag migration) should
+    // read as however many devices it actually has in use, not every row
+    // ever created.
+    deviceCount: devices.filter((d) => d.merchant_id === merchant.id && d.active).length,
   }))
+}
+
+/** Every device row for one merchant, for the admin dashboard's expandable device list. */
+export async function listDevicesForMerchant(merchantId: string): Promise<Device[]> {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('*')
+    .eq('merchant_id', merchantId)
+    .order('label')
+  if (error) throw error
+  return data
+}
+
+export async function setDeviceActive(deviceId: string, active: boolean): Promise<Device> {
+  const { data, error } = await supabase
+    .from('devices')
+    .update({ active })
+    .eq('id', deviceId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
 }
 
 export interface UpdateMerchantSubscriptionInput {

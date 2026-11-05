@@ -9,7 +9,7 @@
 -- relying on this migration.
 
 begin;
-select plan(7);
+select plan(9);
 
 -- ----------------------------------------------------------------------------
 -- Setup (runs as the postgres role, which owns every table and bypasses RLS)
@@ -34,6 +34,10 @@ insert into public.platform_admins (user_id) values
 insert into public.outlets (id, merchant_id, name) values
   ('a1000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Outlet A'),
   ('b1000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Outlet B');
+
+insert into public.devices (id, merchant_id, outlet_id, label, receipt_prefix) values
+  ('a2000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001',
+   'a1000000-0000-0000-0000-000000000001', 'Device 1', 'D1');
 
 -- ----------------------------------------------------------------------------
 -- As the platform admin: can see and update every merchant, and the counts
@@ -65,6 +69,18 @@ select is(
   (select plan from public.merchants where id = 'b0000000-0000-0000-0000-000000000001'),
   'standard',
   'the plan change actually took effect'
+);
+
+select lives_ok(
+  $$update public.devices set active = false
+    where id = 'a2000000-0000-0000-0000-000000000001'$$,
+  'platform admin can deactivate a device'
+);
+
+select is(
+  (select active from public.devices where id = 'a2000000-0000-0000-0000-000000000001'),
+  false,
+  'the device deactivation actually took effect'
 );
 
 -- ----------------------------------------------------------------------------

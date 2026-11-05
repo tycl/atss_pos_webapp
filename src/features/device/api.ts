@@ -42,6 +42,7 @@ export async function ensureActiveDevice(merchantId: string, outletId: string): 
         outlet_id: outletId,
         label: `Device ${deviceCount + 1}`,
         receipt_prefix: `D${deviceCount + 1}`,
+        active: true,
       }
 
       await db.devices.put(device)

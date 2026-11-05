@@ -44,6 +44,10 @@ export interface Device {
   outlet_id: UUID
   label: string
   receipt_prefix: string
+  // Platform-admin-only cleanup flag — see
+  // supabase/migrations/20261106000000_devices_active_flag.sql. Not read or
+  // enforced by the device itself; a device never deactivates its own row.
+  active: boolean
 }
 
 export interface Staff {

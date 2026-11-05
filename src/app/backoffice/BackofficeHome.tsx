@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { db } from '../../lib/db'
 import { getActiveOutletId } from '../../lib/localSession'
@@ -6,6 +7,8 @@ import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useStaffSession } from '../../features/auth/useStaffSession'
 import { listOpenOrders } from '../../features/ordering/orderApi'
 import { buildDailySalesReport } from '../../features/reports/api'
+import { pullOrdersForDate } from '../../features/sync/pullOrdersForDate'
+import { useOnlineStatus } from '../../features/sync/useOnlineStatus'
 
 const NAV_LINKS = [
   { to: '/backoffice/menu', label: 'Menu', description: 'Categories, items, modifiers' },
@@ -27,6 +30,17 @@ const NAV_LINKS = [
 export function BackofficeHome() {
   const { staff, logout } = useStaffSession()
   const outletId = getActiveOutletId()
+  const isOnline = useOnlineStatus()
+
+  // Same reasoning as DailySalesReportPage: this device's Dexie only has
+  // orders it took itself, so pull today's orders down from other devices
+  // before showing "today's sales".
+  useEffect(() => {
+    if (!outletId || !isOnline) return
+    pullOrdersForDate(outletId, new Date()).catch((err) => {
+      console.error('backoffice home: could not pull today’s orders from the cloud', err)
+    })
+  }, [outletId, isOnline])
 
   const outlet = useLiveQuery(
     () => (outletId ? db.outlets.get(outletId).then((o) => o ?? null) : Promise.resolve(null)),

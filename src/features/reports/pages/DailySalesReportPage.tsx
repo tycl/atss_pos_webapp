@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { LoadingState } from '../../../components/LoadingState'
 import { parseLocalDateInputValue, toLocalDateInputValue } from '../../../lib/date'
@@ -6,6 +6,8 @@ import { getActiveOutletId } from '../../../lib/localSession'
 import { formatSenAsRM } from '../../../lib/money'
 import { useLiveQuery } from '../../../lib/useLiveQuery'
 import { useStaffSession } from '../../auth/useStaffSession'
+import { pullOrdersForDate } from '../../sync/pullOrdersForDate'
+import { useOnlineStatus } from '../../sync/useOnlineStatus'
 import { buildDailySalesReport } from '../api'
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -17,6 +19,32 @@ export function DailySalesReportPage() {
   const { staff } = useStaffSession()
   const outletId = getActiveOutletId()
   const [dateInput, setDateInput] = useState(() => toLocalDateInputValue(new Date()))
+  const isOnline = useOnlineStatus()
+  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null)
+
+  // This device's Dexie only has orders it took itself (CLAUDE.md section 8:
+  // the sync queue only pushes device -> cloud). Pull the selected day's
+  // orders down from Supabase first so the report below also covers orders
+  // taken on other devices.
+  useEffect(() => {
+    if (!outletId || !isOnline) return
+    let cancelled = false
+    pullOrdersForDate(outletId, parseLocalDateInputValue(dateInput))
+      .then(() => {
+        if (!cancelled) setCloudSyncError(null)
+      })
+      .catch((err) => {
+        console.error('daily sales report: could not pull orders from the cloud', err)
+        if (!cancelled) {
+          setCloudSyncError(
+            'Could not refresh from the cloud — showing what this device has stored.',
+          )
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [outletId, dateInput, isOnline])
 
   const report = useLiveQuery(
     () =>
@@ -51,6 +79,8 @@ export function DailySalesReportPage() {
             className="mt-1 rounded border border-slate-300 px-3 py-2"
           />
         </label>
+
+        {cloudSyncError && <p className="text-sm text-amber-600">{cloudSyncError}</p>}
 
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-white p-3 shadow">

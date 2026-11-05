@@ -13,10 +13,11 @@ import { catchAsync } from '../../lib/catchAsync'
 import { db } from '../../lib/db'
 import { getActiveMerchantId, getActiveOutletId } from '../../lib/localSession'
 import { formatSenAsRM } from '../../lib/money'
-import type { Device, Item, ModifierGroup, OrderType } from '../../lib/types'
+import type { Item, ModifierGroup, OrderType } from '../../lib/types'
 import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useStaffSession } from '../../features/auth/useStaffSession'
-import { ensureActiveDevice } from '../../features/device/api'
+import { ClaimDeviceModal } from '../../features/device/components/ClaimDeviceModal'
+import { useActiveDevice } from '../../features/device/useActiveDevice'
 import {
   listAllModifiersForMerchant,
   listCategories,
@@ -77,13 +78,10 @@ export function PosHome() {
     null,
   )
 
-  const [device, setDevice] = useState<Device | null>(null)
-  const [deviceError, setDeviceError] = useState<string | null>(null)
-  useEffect(() => {
-    if (merchantId && outletId) {
-      catchAsync(ensureActiveDevice(merchantId, outletId).then(setDevice), setDeviceError)
-    }
-  }, [merchantId, outletId])
+  const { device, deviceError, claimableDevices, chooseExisting, chooseNew } = useActiveDevice(
+    merchantId,
+    outletId,
+  )
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [popupItem, setPopupItem] = useState<Item | null>(null)
@@ -398,6 +396,14 @@ export function PosHome() {
           outletId={outletId}
           onCancel={() => setShowPlaceOrderModal(false)}
           onConfirm={(type, tableId) => void submitNewOrder(type, tableId)}
+        />
+      )}
+
+      {claimableDevices && (
+        <ClaimDeviceModal
+          devices={claimableDevices}
+          onChooseExisting={chooseExisting}
+          onChooseNew={chooseNew}
         />
       )}
     </div>

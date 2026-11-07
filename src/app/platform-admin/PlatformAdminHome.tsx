@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import {
@@ -28,6 +29,7 @@ function isExpired(merchant: MerchantWithCounts): boolean {
 }
 
 export function PlatformAdminHome() {
+  const navigate = useNavigate()
   const [merchants, setMerchants] = useState<MerchantWithCounts[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -42,6 +44,14 @@ export function PlatformAdminHome() {
       .then(setMerchants)
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load merchants'))
   }, [])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    // RequirePlatformAdmin only checks admin status once on mount, so
+    // without this the page would otherwise sit there unchanged even
+    // though the session was actually cleared.
+    navigate('/platform-admin/signin', { replace: true })
+  }
 
   function updateRow(id: string, patch: Partial<MerchantWithCounts>) {
     setMerchants((rows) => rows?.map((row) => (row.id === id ? { ...row, ...patch } : row)) ?? rows)
@@ -118,7 +128,7 @@ export function PlatformAdminHome() {
             <h1 className="text-2xl font-semibold text-slate-800">Platform admin</h1>
             <p className="text-sm text-slate-500">Every merchant using the POS, and their plan.</p>
           </div>
-          <Button variant="outline" onClick={() => void supabase.auth.signOut()}>
+          <Button variant="outline" onClick={() => void handleSignOut()}>
             Sign out
           </Button>
         </div>

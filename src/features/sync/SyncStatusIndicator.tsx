@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { db } from '../../lib/db'
 import { getActiveMerchantId } from '../../lib/localSession'
 import { useLiveQuery } from '../../lib/useLiveQuery'
@@ -35,9 +36,9 @@ export function SyncStatusIndicator() {
       />
       <span>{online ? 'Online' : 'Offline'}</span>
       {pending > 0 && (
-        <span className="text-slate-500">
+        <Link to="/backoffice/sync-issues" className="text-slate-500 underline">
           · {pending} record{pending === 1 ? '' : 's'} waiting to sync
-        </span>
+        </Link>
       )}
     </div>
   )

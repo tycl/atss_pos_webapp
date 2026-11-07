@@ -3,6 +3,7 @@ import type {
   AuditLog,
   Category,
   Device,
+  DeviceBinding,
   Item,
   ItemModifierGroup,
   Merchant,
@@ -44,6 +45,7 @@ export class AtssPosDB extends Dexie {
   shifts!: EntityTable<Shift, 'id'>
   audit_log!: EntityTable<AuditLog, 'id'>
   sync_queue!: EntityTable<SyncQueueItem, 'id'>
+  device_bindings!: EntityTable<DeviceBinding, 'outlet_id'>
 
   constructor() {
     super('atss-pos')
@@ -65,6 +67,11 @@ export class AtssPosDB extends Dexie {
       shifts: 'id, merchant_id, outlet_id, device_id, opened_at',
       audit_log: 'id, merchant_id, created_at',
       sync_queue: 'id, seq',
+    })
+    // Which device (till) this browser is bound to, per outlet — see
+    // features/device/api.ts and DeviceBinding's own doc comment in types.ts.
+    this.version(2).stores({
+      device_bindings: 'outlet_id',
     })
   }
 }

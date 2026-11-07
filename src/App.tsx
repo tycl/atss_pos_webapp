@@ -5,6 +5,7 @@ import { StaffSessionProvider } from './features/auth/StaffSessionContext'
 import { isSyncDisabledForActiveMerchant } from './features/sync/queue'
 import { SyncStatusIndicator } from './features/sync/SyncStatusIndicator'
 import { startSyncManager, type SyncManager } from './features/sync/syncManager'
+import { requestPersistentStorage } from './lib/persistentStorage'
 
 function App() {
   useEffect(() => {
@@ -23,6 +24,10 @@ function App() {
       cancelled = true
       manager?.stop()
     }
+  }, [])
+
+  useEffect(() => {
+    void requestPersistentStorage()
   }, [])
 
   return (

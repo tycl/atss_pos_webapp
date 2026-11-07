@@ -3,6 +3,7 @@ import { OnboardingPage } from '../features/auth/pages/OnboardingPage'
 import { SignInPage } from '../features/auth/pages/SignInPage'
 import { SignUpPage } from '../features/auth/pages/SignUpPage'
 import { StaffLoginPage } from '../features/auth/pages/StaffLoginPage'
+import { TillsManagementPage } from '../features/device/pages/TillsManagementPage'
 import { MenuManagementPage } from '../features/menu/pages/MenuManagementPage'
 import { OpenOrdersPage } from '../features/ordering/pages/OpenOrdersPage'
 import { RecentOrdersPage } from '../features/ordering/pages/RecentOrdersPage'
@@ -11,6 +12,7 @@ import { DailySalesReportPage } from '../features/reports/pages/DailySalesReport
 import { OwnerDashboardPage } from '../features/reports/pages/OwnerDashboardPage'
 import { OutletSettingsPage } from '../features/settings/pages/OutletSettingsPage'
 import { StaffManagementPage } from '../features/staff/pages/StaffManagementPage'
+import { SyncIssuesPage } from '../features/sync/pages/SyncIssuesPage'
 import { TablesManagementPage } from '../features/tables/pages/TablesManagementPage'
 import { BackofficeHome } from './backoffice/BackofficeHome'
 import { PosHome } from './pos/PosHome'
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
   { path: '/backoffice/settings', element: <OutletSettingsPage /> },
   { path: '/backoffice/staff', element: <StaffManagementPage /> },
   { path: '/backoffice/dashboard', element: <OwnerDashboardPage /> },
+  { path: '/backoffice/sync-issues', element: <SyncIssuesPage /> },
+  { path: '/backoffice/tills', element: <TillsManagementPage /> },
   { path: '/platform-admin/signin', element: <PlatformAdminSignInPage /> },
   {
     path: '/platform-admin',

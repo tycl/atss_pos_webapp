@@ -17,6 +17,7 @@ import type { Item, ModifierGroup, OrderType } from '../../lib/types'
 import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useStaffSession } from '../../features/auth/useStaffSession'
 import { ClaimDeviceModal } from '../../features/device/components/ClaimDeviceModal'
+import { DeviceCollisionBanner } from '../../features/device/DeviceCollisionBanner'
 import { useActiveDevice } from '../../features/device/useActiveDevice'
 import {
   listAllModifiersForMerchant,
@@ -78,10 +79,8 @@ export function PosHome() {
     null,
   )
 
-  const { device, deviceError, claimableDevices, chooseExisting, chooseNew } = useActiveDevice(
-    merchantId,
-    outletId,
-  )
+  const { device, deviceError, claimableDevices, chooseExisting, chooseNew, collision } =
+    useActiveDevice(merchantId, outletId)
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [popupItem, setPopupItem] = useState<Item | null>(null)
@@ -292,6 +291,7 @@ export function PosHome() {
           Could not set up this device: {deviceError}
         </div>
       )}
+      {collision && <DeviceCollisionBanner />}
       {printWarning && (
         <div className="flex items-center justify-between bg-amber-100 px-4 py-2 text-sm text-amber-800">
           <span>{printWarning}</span>
@@ -399,8 +399,10 @@ export function PosHome() {
         />
       )}
 
-      {claimableDevices && (
+      {claimableDevices && merchantId && outletId && (
         <ClaimDeviceModal
+          merchantId={merchantId}
+          outletId={outletId}
           devices={claimableDevices}
           onChooseExisting={chooseExisting}
           onChooseNew={chooseNew}

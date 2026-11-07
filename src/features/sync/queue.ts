@@ -3,6 +3,7 @@ import { getActiveMerchantId } from '../../lib/localSession'
 import { nextSeq } from '../../lib/sequence'
 import { supabase } from '../../lib/supabase'
 import type { SyncOp, SyncQueueItem } from '../../lib/types'
+import { reassignDeviceReceiptPrefix } from './deviceConflictResolution'
 
 type QueueChangedListener = () => void
 const queueChangedListeners = new Set<QueueChangedListener>()
@@ -97,6 +98,49 @@ function errorMessage(err: unknown): string {
   }
 }
 
+interface PostgrestLikeError {
+  code: string
+  message?: string
+}
+
+/** A PostgREST/Supabase rejection has a string `.code` (the Postgres SQLSTATE); a plain network throw doesn't. */
+function asPostgrestError(err: unknown): PostgrestLikeError | null {
+  if (typeof err !== 'object' || err === null) return null
+  if (!('code' in err) || typeof (err as { code?: unknown }).code !== 'string') return null
+  return err as PostgrestLikeError
+}
+
+// Postgres SQLSTATEs that mean "this exact write can never succeed as-is" —
+// retrying it unchanged just wastes a cycle and, worse, blocks every newer
+// item behind it in the queue. 23505 (unique violation) is deliberately
+// excluded: on a `devices` upsert it's a receipt-prefix race the queue
+// auto-recovers from by re-rolling a free prefix (not a permanent failure),
+// and for any other table there's no recovery path yet, so it's safer to
+// treat it like a transient failure (stop and retry later) than to silently
+// skip an unresolved conflict.
+const PERMANENT_ERROR_CODES = new Set([
+  '23503', // foreign key violation
+  '23502', // not-null violation
+  '23514', // check constraint violation
+  '22P02', // invalid input syntax (e.g. malformed uuid)
+  '42501', // RLS / insufficient privilege
+])
+
+type ClassifiedError = 'permanent' | 'transient'
+
+/**
+ * Distinguishes "this item's write is permanently bad" from "this attempt
+ * failed, probably because we're offline" — drainOnce() uses this to decide
+ * whether a failure should block the rest of the batch. Anything without a
+ * recognizable PostgREST `.code` (including a plain network-level
+ * `TypeError: Failed to fetch`) classifies as transient.
+ */
+function classifyError(err: unknown): ClassifiedError {
+  const pg = asPostgrestError(err)
+  if (pg && PERMANENT_ERROR_CODES.has(pg.code)) return 'permanent'
+  return 'transient'
+}
+
 // After this many failed attempts, an item is treated as permanently stuck
 // (e.g. it was queued under an auth session that's since changed, or
 // references data that no longer exists) rather than a transient blip —
@@ -104,14 +148,17 @@ function errorMessage(err: unknown): string {
 const MAX_ATTEMPTS_BEFORE_SKIP = 5
 
 /**
- * Pushes every queued item to Supabase, oldest first. Normally stops at the
- * first failure (keeping queue order — section 8's "device's version wins"
- * relies on changes landing in the order they happened), since a fresh
- * failure is usually just "we're offline" and every later item would fail
- * the same way anyway. But once an item has failed MAX_ATTEMPTS_BEFORE_SKIP
- * times, it's treated as permanently stuck and skipped instead of stopping
- * the batch — it stays in the queue and is still retried on later cycles,
- * it just no longer blocks every other item behind it forever.
+ * Pushes every queued item to Supabase, oldest first. A transient failure
+ * (classifyError — most likely "we're offline") stops the whole batch there
+ * (keeping queue order — section 8's "device's version wins" relies on
+ * changes landing in the order they happened), since every later item would
+ * probably fail the same way anyway. A permanent failure (this exact write
+ * can never succeed, e.g. a foreign key violation against data that no
+ * longer exists) never blocks the batch, even on its very first attempt —
+ * it stays queued, visibly stuck for later diagnostics, and drainOnce moves
+ * straight on to the next item. MAX_ATTEMPTS_BEFORE_SKIP remains a safety
+ * valve for a failure that keeps recurring without ever classifying as
+ * permanent.
  */
 export async function drainOnce(): Promise<{ pushed: number; remaining: number }> {
   if (drainInFlight) return drainInFlight
@@ -127,9 +174,33 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
           await db.sync_queue.delete(item.id)
           pushed++
         } catch (err) {
+          const pg = asPostgrestError(err)
+
+          // A receipt-prefix race on a devices upsert is auto-recoverable:
+          // re-roll this item's prefix to one that's actually free
+          // server-side right now and let the normal retry cycle push it
+          // again. Not a normal failed attempt, and never blocks the batch.
+          if (item.table === 'devices' && item.op === 'upsert' && pg?.code === '23505') {
+            try {
+              await reassignDeviceReceiptPrefix(item)
+            } catch (reassignErr) {
+              console.error('sync queue: could not reassign a conflicting receipt_prefix', {
+                itemId: item.id,
+                reassignErr,
+              })
+            }
+            continue
+          }
+
           const attempts = item.attempts + 1
+          const errorType = classifyError(err)
           try {
-            await db.sync_queue.update(item.id, { attempts, last_error: errorMessage(err) })
+            await db.sync_queue.update(item.id, {
+              attempts,
+              last_error: errorMessage(err),
+              last_error_type: errorType,
+              last_error_code: pg?.code ?? null,
+            })
           } catch (recordErr) {
             // Recording the failure is itself a Dexie write and can fail on
             // its own (e.g. a stale IndexedDB connection) — if it throws
@@ -145,7 +216,7 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
             })
           }
 
-          if (attempts >= MAX_ATTEMPTS_BEFORE_SKIP) continue
+          if (errorType === 'permanent' || attempts >= MAX_ATTEMPTS_BEFORE_SKIP) continue
           break
         }
       }

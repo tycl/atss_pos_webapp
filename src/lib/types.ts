@@ -48,6 +48,19 @@ export interface Device {
   // supabase/migrations/20261106000000_devices_active_flag.sql. Not read or
   // enforced by the device itself; a device never deactivates its own row.
   active: boolean
+  // Presence telemetry written by features/device/heartbeat.ts while this
+  // till's browser tab is open — see
+  // supabase/migrations/20261108000000_devices_heartbeat.sql. Optional/null
+  // until the first heartbeat, including for every Device object literal
+  // written before this field existed (device creation itself doesn't set
+  // these — only the heartbeat does).
+  last_seen_at?: ISODateTime | null
+  session_id?: string | null
+  user_agent?: string | null
+  // Owner-initiated "force re-claim" (Back office Tills page, a later
+  // phase) — the till's own next heartbeat notices this is set, clears its
+  // local binding so the claim picker reappears, and clears this flag.
+  force_reclaim_requested_at?: ISODateTime | null
 }
 
 export interface Staff {
@@ -230,4 +243,20 @@ export interface SyncQueueItem {
   seq: number
   attempts: number
   last_error: string | null
+  // Set alongside last_error from queue.ts's classifyError(): 'permanent'
+  // means this exact write can never succeed as-is (e.g. a foreign key
+  // violation) and must never block newer, unrelated items behind it in the
+  // queue; 'transient' means it still might (most likely just offline).
+  // Optional/undefined for items written before this field existed.
+  last_error_type?: 'permanent' | 'transient' | null
+  last_error_code?: string | null
+}
+
+// Local-only: which device (till) this browser is bound to for a given
+// outlet. Keyed by outlet rather than a single global value so one browser
+// could correctly remember a different till per outlet if it's ever used
+// for more than one. See features/device/api.ts's readDeviceBinding et al.
+export interface DeviceBinding {
+  outlet_id: UUID
+  device_id: UUID
 }

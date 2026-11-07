@@ -8,6 +8,7 @@ describe('AtssPosDB schema', () => {
       [
         'audit_log',
         'categories',
+        'device_bindings',
         'devices',
         'dine_tables',
         'item_modifier_groups',

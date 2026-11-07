@@ -47,6 +47,7 @@ beforeEach(async () => {
   fromMock.mockReset()
   await db.sync_queue.clear()
   await db.merchants.clear()
+  await db.devices.clear()
   clearActiveMerchant()
 })
 
@@ -159,7 +160,7 @@ describe('drainOnce', () => {
     expect(upsert).toHaveBeenNthCalledWith(2, { id: 's2' })
   })
 
-  it('stops at the first failure and records the error, leaving it queued', async () => {
+  it('a transient failure (e.g. offline) stops the batch at the first attempt, leaving it queued', async () => {
     const upsert = vi.fn().mockResolvedValue({ error: new Error('offline') })
     fromMock.mockReturnValue({ upsert })
 
@@ -174,7 +175,97 @@ describe('drainOnce', () => {
     const remaining = await db.sync_queue.orderBy('seq').toArray()
     expect(remaining[0].attempts).toBe(1)
     expect(remaining[0].last_error).toBe('offline')
+    expect(remaining[0].last_error_type).toBe('transient')
     expect(remaining[1].attempts).toBe(0)
+  })
+
+  it('a permanent error (e.g. a foreign key violation) does not block the rest of the batch, even on the first attempt', async () => {
+    const upsert = vi.fn((payload: { id: string }) =>
+      payload.id === 'orphaned'
+        ? Promise.resolve({
+            error: {
+              code: '23503',
+              message: 'insert or update on table "staff" violates foreign key constraint',
+            },
+          })
+        : Promise.resolve({ error: null }),
+    )
+    fromMock.mockReturnValue({ upsert })
+
+    await enqueue('staff', 'upsert', { id: 'orphaned' })
+    await enqueue('staff', 'upsert', { id: 'healthy' })
+
+    const result = await drainOnce()
+
+    expect(result).toEqual({ pushed: 1, remaining: 1 })
+    expect(upsert).toHaveBeenCalledWith({ id: 'healthy' })
+
+    const [stuck] = await db.sync_queue.orderBy('seq').toArray()
+    expect(stuck.attempts).toBe(1)
+    expect(stuck.last_error_type).toBe('permanent')
+    expect(stuck.last_error_code).toBe('23503')
+  })
+
+  it('auto-recovers a devices receipt-prefix conflict (23505) without blocking an unrelated item, or counting as a failed attempt', async () => {
+    let devicesUpsertCalls = 0
+    const devicesUpsert = vi.fn(() => {
+      devicesUpsertCalls++
+      if (devicesUpsertCalls === 1) {
+        return Promise.resolve({
+          error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+        })
+      }
+      return Promise.resolve({ error: null })
+    })
+    const staffUpsert = vi.fn().mockResolvedValue({ error: null })
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'devices') {
+        return {
+          upsert: devicesUpsert,
+          select: () => ({
+            eq: async () => ({ data: [{ receipt_prefix: 'D1' }], error: null }),
+          }),
+        }
+      }
+      if (table === 'staff') return { upsert: staffUpsert }
+      throw new Error(`unexpected table in test: ${table}`)
+    })
+
+    await db.devices.add({
+      id: 'device-1',
+      merchant_id: 'merchant-1',
+      outlet_id: 'outlet-1',
+      label: 'Device 1',
+      receipt_prefix: 'D1',
+      active: true,
+    })
+    await enqueue('devices', 'upsert', {
+      id: 'device-1',
+      merchant_id: 'merchant-1',
+      outlet_id: 'outlet-1',
+      label: 'Device 1',
+      receipt_prefix: 'D1',
+      active: true,
+    })
+    await enqueue('staff', 'upsert', { id: 's1' })
+
+    const firstResult = await drainOnce()
+
+    expect(firstResult).toEqual({ pushed: 1, remaining: 1 })
+    expect(staffUpsert).toHaveBeenCalledWith({ id: 's1' })
+
+    const [deviceItem] = await db.sync_queue.toArray()
+    expect(deviceItem.attempts).toBe(0)
+    expect(deviceItem.payload.receipt_prefix).toBe('D2')
+    expect(await db.devices.get('device-1')).toMatchObject({ receipt_prefix: 'D2' })
+
+    const secondResult = await drainOnce()
+
+    expect(secondResult).toEqual({ pushed: 1, remaining: 0 })
+    expect(devicesUpsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ receipt_prefix: 'D2' }),
+    )
   })
 
   it('does not throw if recording the failure itself fails (e.g. a broken IndexedDB connection)', async () => {

@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/backoffice/menu', label: 'Menu', description: 'Categories, items, modifiers' },
   { to: '/backoffice/tables', label: 'Tables', description: 'Dine-in table layout' },
   { to: '/backoffice/staff', label: 'Staff', description: 'Roles, PINs, access' },
+  { to: '/backoffice/tills', label: 'Tills', description: 'Rename, deactivate, re-claim' },
   {
     to: '/backoffice/settings',
     label: 'Outlet settings',
@@ -24,6 +25,11 @@ const NAV_LINKS = [
     to: '/backoffice/dashboard',
     label: 'Dashboard',
     description: 'Sales by day, top items, CSV export',
+  },
+  {
+    to: '/backoffice/sync-issues',
+    label: 'Sync issues',
+    description: 'Records stuck syncing, and why',
   },
 ]
 

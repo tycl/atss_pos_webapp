@@ -7,6 +7,7 @@ import {
   getCachedActiveDevice,
   listClaimableDevices,
 } from './api'
+import { startDeviceHeartbeat } from './heartbeat'
 
 export interface UseActiveDeviceResult {
   device: Device | null
@@ -16,6 +17,10 @@ export interface UseActiveDeviceResult {
   claimableDevices: Device[] | null
   chooseExisting: (device: Device) => void
   chooseNew: () => void
+  // True while another browser's heartbeat for this same till looks recent
+  // — informational only, never blocks placing orders (see
+  // DeviceCollisionBanner).
+  collision: boolean
 }
 
 /**
@@ -35,6 +40,10 @@ export function useActiveDevice(
   const [device, setDevice] = useState<Device | null>(null)
   const [deviceError, setDeviceError] = useState<string | null>(null)
   const [claimableDevices, setClaimableDevices] = useState<Device[] | null>(null)
+  const [collision, setCollision] = useState(false)
+  // Bumped to force the resolution effect below to re-run after a
+  // force-reclaim, since `device` itself isn't one of its dependencies.
+  const [resolutionTrigger, setResolutionTrigger] = useState(0)
 
   useEffect(() => {
     if (!merchantId || !outletId) return
@@ -68,7 +77,19 @@ export function useActiveDevice(
     return () => {
       cancelled = true
     }
-  }, [merchantId, outletId, isOnline])
+  }, [merchantId, outletId, isOnline, resolutionTrigger])
+
+  useEffect(() => {
+    if (!device || !outletId) return
+
+    const handle = startDeviceHeartbeat(device, outletId, setCollision, () => {
+      setDevice(null)
+      setCollision(false)
+      setResolutionTrigger((n) => n + 1)
+    })
+
+    return () => handle.stop()
+  }, [device, outletId])
 
   function chooseExisting(chosen: Device) {
     setClaimableDevices(null)
@@ -89,5 +110,5 @@ export function useActiveDevice(
       })
   }
 
-  return { device, deviceError, claimableDevices, chooseExisting, chooseNew }
+  return { device, deviceError, claimableDevices, chooseExisting, chooseNew, collision }
 }

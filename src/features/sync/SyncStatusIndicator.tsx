@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { db } from '../../lib/db'
 import { getActiveMerchantId } from '../../lib/localSession'
 import { useLiveQuery } from '../../lib/useLiveQuery'
@@ -35,10 +34,16 @@ export function SyncStatusIndicator() {
         aria-hidden="true"
       />
       <span>{online ? 'Online' : 'Offline'}</span>
+      {/*
+        A plain anchor, not react-router's <Link>: App.tsx renders this
+        badge as a sibling of <RouterProvider>, so there's no router
+        context here and a <Link> throws the moment the queue is non-empty
+        (i.e. right after the first order) — white screen.
+      */}
       {pending > 0 && (
-        <Link to="/backoffice/sync-issues" className="text-slate-500 underline">
+        <a href="/backoffice/sync-issues" className="text-slate-500 underline">
           · {pending} record{pending === 1 ? '' : 's'} waiting to sync
-        </Link>
+        </a>
       )}
     </div>
   )

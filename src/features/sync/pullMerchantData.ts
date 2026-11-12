@@ -16,20 +16,22 @@ export async function listMyMerchants(): Promise<Merchant[]> {
 }
 
 /**
- * Pulls one merchant's setup down from Supabase into this device's local
- * Dexie cache, then marks it as this device's active merchant/outlet
+ * Pulls one merchant's full setup down from Supabase into this device's
+ * local Dexie cache, then marks it as this device's active merchant/outlet
  * (CLAUDE.md section 8: "menu and settings are pulled from the cloud and
- * cached locally"). This is the first cloud -> device sync path in the
- * app — until now, data only ever flowed device -> cloud.
+ * cached locally").
  *
- * MVP limitation: only the merchant's first outlet is pulled. Multi-outlet
- * merchants aren't supported by onboarding either, so this matches that.
+ * All outlets (and their per-outlet settings/tables) are pulled so the
+ * owner can switch between branches offline. The first outlet is set as
+ * the active one by default.
+ *
  * Historical orders/payments/shifts are not pulled — a freshly attached
  * device starts with an empty order history, same as a brand-new shop.
  */
 export async function pullMerchantData(merchantId: string): Promise<{
   merchant: Merchant
-  outlet: Outlet
+  outlets: Outlet[]
+  activeOutlet: Outlet
 }> {
   const [merchantRes, outletsRes] = await Promise.all([
     supabase.from('merchants').select().eq('id', merchantId).single(),
@@ -40,9 +42,9 @@ export async function pullMerchantData(merchantId: string): Promise<{
 
   const merchant = merchantRes.data as Merchant
   const outlets = (outletsRes.data ?? []) as Outlet[]
-  const outlet = outlets[0]
-  if (!outlet) throw new Error('This shop has no outlet set up yet')
+  if (outlets.length === 0) throw new Error('This shop has no outlet set up yet')
 
+  const outletIds = outlets.map((o) => o.id)
   const [
     settingsRes,
     staffRes,
@@ -53,14 +55,14 @@ export async function pullMerchantData(merchantId: string): Promise<{
     linksRes,
     tablesRes,
   ] = await Promise.all([
-    supabase.from('settings').select().eq('outlet_id', outlet.id).maybeSingle(),
+    supabase.from('settings').select().in('outlet_id', outletIds),
     supabase.from('staff').select().eq('merchant_id', merchantId),
     supabase.from('categories').select().eq('merchant_id', merchantId),
     supabase.from('items').select().eq('merchant_id', merchantId),
     supabase.from('modifier_groups').select().eq('merchant_id', merchantId),
     supabase.from('modifiers').select().eq('merchant_id', merchantId),
     supabase.from('item_modifier_groups').select().eq('merchant_id', merchantId),
-    supabase.from('tables').select().eq('outlet_id', outlet.id),
+    supabase.from('tables').select().in('outlet_id', outletIds),
   ])
   for (const res of [
     settingsRes,
@@ -76,8 +78,8 @@ export async function pullMerchantData(merchantId: string): Promise<{
   }
 
   await db.merchants.put(merchant)
-  await db.outlets.put(outlet)
-  if (settingsRes.data) await db.settings.put(settingsRes.data)
+  await db.outlets.bulkPut(outlets)
+  if (settingsRes.data?.length) await db.settings.bulkPut(settingsRes.data)
   if (staffRes.data?.length) await db.staff.bulkPut(staffRes.data)
   if (categoriesRes.data?.length) await db.categories.bulkPut(categoriesRes.data)
   if (itemsRes.data?.length) await db.items.bulkPut(itemsRes.data)
@@ -86,8 +88,9 @@ export async function pullMerchantData(merchantId: string): Promise<{
   if (linksRes.data?.length) await db.item_modifier_groups.bulkPut(linksRes.data)
   if (tablesRes.data?.length) await db.dine_tables.bulkPut(tablesRes.data)
 
+  const activeOutlet = outlets[0]
   setActiveMerchantId(merchant.id)
-  setActiveOutletId(outlet.id)
+  setActiveOutletId(activeOutlet.id)
 
-  return { merchant, outlet }
+  return { merchant, outlets, activeOutlet }
 }

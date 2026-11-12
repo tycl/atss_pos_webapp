@@ -1,16 +1,17 @@
 import { useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { db } from '../../lib/db'
 import { getActiveOutletId } from '../../lib/localSession'
 import { formatSenAsRM } from '../../lib/money'
 import { useLiveQuery } from '../../lib/useLiveQuery'
 import { useStaffSession } from '../../features/auth/useStaffSession'
+import { OutletSwitcher } from '../../features/outlet/components/OutletSwitcher'
 import { listOpenOrders } from '../../features/ordering/orderApi'
 import { buildDailySalesReport } from '../../features/reports/api'
 import { pullOrdersForDate } from '../../features/sync/pullOrdersForDate'
 import { useOnlineStatus } from '../../features/sync/useOnlineStatus'
 
 const NAV_LINKS = [
+  { to: '/backoffice/outlets', label: 'Outlets', description: 'Add or manage branches' },
   { to: '/backoffice/menu', label: 'Menu', description: 'Categories, items, modifiers' },
   { to: '/backoffice/tables', label: 'Tables', description: 'Dine-in table layout' },
   { to: '/backoffice/staff', label: 'Staff', description: 'Roles, PINs, access' },
@@ -48,11 +49,6 @@ export function BackofficeHome() {
     })
   }, [outletId, isOnline])
 
-  const outlet = useLiveQuery(
-    () => (outletId ? db.outlets.get(outletId).then((o) => o ?? null) : Promise.resolve(null)),
-    [outletId],
-    null,
-  )
   const today = useLiveQuery(
     () => (outletId ? buildDailySalesReport(outletId, new Date()) : Promise.resolve(null)),
     [outletId],
@@ -74,7 +70,7 @@ export function BackofficeHome() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">
-              {outlet?.name ?? 'Back office'}
+              <OutletSwitcher />
             </h1>
             <p className="text-sm text-slate-500">Welcome, {staff.name}.</p>
           </div>

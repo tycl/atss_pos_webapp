@@ -37,6 +37,7 @@ import { PlaceOrderModal } from '../../features/ordering/components/PlaceOrderMo
 import { loadOrderAsCartLines, placeOrder, updateOpenOrder } from '../../features/ordering/orderApi'
 import { buildKitchenTicketData } from '../../features/printing/buildPrintData'
 import { createNetworkBridgeProvider } from '../../features/printing/networkBridgeProvider'
+import { OutletSwitcher } from '../../features/outlet/components/OutletSwitcher'
 import { ShiftControl } from '../../features/shift/components/ShiftControl'
 
 interface PosLocationState {
@@ -223,7 +224,7 @@ export function PosHome() {
   return (
     <div className="flex h-screen flex-col bg-slate-50">
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
-        <span className="font-semibold text-primary-700">ATSS POS</span>
+        <OutletSwitcher />
         <div className="flex flex-wrap items-center gap-2 gap-y-2 text-sm text-slate-600">
           {resumeOrderId && (
             <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">

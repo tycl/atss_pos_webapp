@@ -5,6 +5,7 @@ import { SignUpPage } from '../features/auth/pages/SignUpPage'
 import { StaffLoginPage } from '../features/auth/pages/StaffLoginPage'
 import { TillsManagementPage } from '../features/device/pages/TillsManagementPage'
 import { MenuManagementPage } from '../features/menu/pages/MenuManagementPage'
+import { OutletManagementPage } from '../features/outlet/pages/OutletManagementPage'
 import { OpenOrdersPage } from '../features/ordering/pages/OpenOrdersPage'
 import { RecentOrdersPage } from '../features/ordering/pages/RecentOrdersPage'
 import { PaymentPage } from '../features/payment/pages/PaymentPage'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
   { path: '/reports/daily-sales', element: <DailySalesReportPage /> },
   { path: '/backoffice', element: <BackofficeHome /> },
   { path: '/backoffice/menu', element: <MenuManagementPage /> },
+  { path: '/backoffice/outlets', element: <OutletManagementPage /> },
   { path: '/backoffice/tables', element: <TablesManagementPage /> },
   { path: '/backoffice/settings', element: <OutletSettingsPage /> },
   { path: '/backoffice/staff', element: <StaffManagementPage /> },

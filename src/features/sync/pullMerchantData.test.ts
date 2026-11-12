@@ -44,7 +44,7 @@ function makeFromMock() {
     if (table === 'settings') {
       return {
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: settings, error: null }) }),
+          in: async () => ({ data: [settings], error: null }),
         }),
       }
     }
@@ -67,7 +67,7 @@ function makeFromMock() {
       return { select: () => ({ eq: async () => ({ data: links, error: null }) }) }
     }
     if (table === 'tables') {
-      return { select: () => ({ eq: async () => ({ data: tables, error: null }) }) }
+      return { select: () => ({ in: async () => ({ data: tables, error: null }) }) }
     }
     throw new Error(`unexpected table in test: ${table}`)
   }
@@ -95,7 +95,8 @@ describe('pullMerchantData', () => {
     const result = await pullMerchantData(MERCHANT_ID)
 
     expect(result.merchant).toEqual(merchant)
-    expect(result.outlet).toEqual(outlet)
+    expect(result.outlets).toEqual([outlet])
+    expect(result.activeOutlet).toEqual(outlet)
     expect(await db.merchants.get(MERCHANT_ID)).toEqual(merchant)
     expect(await db.outlets.get(OUTLET_ID)).toEqual(outlet)
     expect(await db.settings.get(OUTLET_ID)).toEqual(settings)

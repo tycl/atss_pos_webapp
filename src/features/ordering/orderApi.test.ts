@@ -54,7 +54,7 @@ beforeEach(async () => {
 describe('generateOrderNo', () => {
   it('starts at 1 for a device with no orders today', async () => {
     const orderNo = await generateOrderNo(DEVICE_ID, 'D1')
-    expect(orderNo).toMatch(/^D1-\d{8}-1$/)
+    expect(orderNo).toMatch(/^D1-\d{8}-0001$/)
   })
 
   it('increments after placing an order on the same device', async () => {
@@ -70,7 +70,7 @@ describe('generateOrderNo', () => {
       settings: allOffSettings,
     })
     const orderNo = await generateOrderNo(DEVICE_ID, 'D1')
-    expect(orderNo).toMatch(/^D1-\d{8}-2$/)
+    expect(orderNo).toMatch(/^D1-\d{8}-0002$/)
   })
 
   it('counts independently per device', async () => {
@@ -86,7 +86,7 @@ describe('generateOrderNo', () => {
       settings: allOffSettings,
     })
     const orderNo = await generateOrderNo('device-2', 'D2')
-    expect(orderNo).toMatch(/^D2-\d{8}-1$/)
+    expect(orderNo).toMatch(/^D2-\d{8}-0001$/)
   })
 })
 

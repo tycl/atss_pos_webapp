@@ -12,7 +12,7 @@ export async function generateOrderNo(deviceId: string, devicePrefix: string): P
   const countToday = deviceOrders.filter(
     (order) => toLocalYYYYMMDD(new Date(order.created_at)) === todayStr,
   ).length
-  return `${devicePrefix}-${todayStr}-${countToday + 1}`
+  return `${devicePrefix}-${todayStr}-${String(countToday + 1).padStart(4, '0')}`
 }
 
 function linesToOrderLines(merchantId: string, orderId: string, lines: CartLine[]): OrderLine[] {

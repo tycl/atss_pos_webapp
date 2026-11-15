@@ -85,7 +85,7 @@ describe('offline resilience: 50 orders offline, then reconnect', () => {
     const orderNos = storedOrders.map((o) => o.order_no).sort()
     const expectedNos = Array.from(
       { length: 50 },
-      (_, i) => `D1-${storedOrders[0].order_no.split('-')[1]}-${i + 1}`,
+      (_, i) => `D1-${storedOrders[0].order_no.split('-')[1]}-${String(i + 1).padStart(4, '0')}`,
     ).sort()
     expect(orderNos).toEqual(expectedNos)
 

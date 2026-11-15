@@ -66,6 +66,7 @@ export function TillsManagementPage() {
                 till={till}
                 merchantId={merchantId}
                 outletId={outletId}
+                staffId={staff.id}
                 onUpdate={updateRow}
               />
             ))}
@@ -80,11 +81,13 @@ function TillRow({
   till,
   merchantId,
   outletId,
+  staffId,
   onUpdate,
 }: {
   till: Device
   merchantId: string
   outletId: string
+  staffId: string
   onUpdate: (id: string, patch: Partial<Device>) => void
 }) {
   const [rowError, setRowError] = useState<string | null>(null)
@@ -96,7 +99,7 @@ function TillRow({
     setRowError(null)
     setReclaiming(true)
     catchAsync(
-      requestForceReclaim(till.id).then((saved) => {
+      requestForceReclaim(till.id, merchantId, staffId).then((saved) => {
         onUpdate(till.id, saved)
         setReclaiming(false)
       }),

@@ -5,6 +5,7 @@ import {
   claimExistingDevice,
   ensureActiveDevice,
   getCachedActiveDevice,
+  invalidateDeviceBinding,
   listClaimableDevices,
 } from './api'
 import { startDeviceHeartbeat } from './heartbeat'
@@ -35,6 +36,7 @@ export interface UseActiveDeviceResult {
 export function useActiveDevice(
   merchantId: string | null,
   outletId: string | null,
+  staffId: string | null = null,
 ): UseActiveDeviceResult {
   const isOnline = useOnlineStatus()
   const [device, setDevice] = useState<Device | null>(null)
@@ -82,13 +84,39 @@ export function useActiveDevice(
   useEffect(() => {
     if (!device || !outletId) return
 
-    const handle = startDeviceHeartbeat(device, outletId, setCollision, () => {
-      setDevice(null)
-      setCollision(false)
-      setResolutionTrigger((n) => n + 1)
-    })
+    const handle = startDeviceHeartbeat(
+      device,
+      outletId,
+      staffId,
+      setCollision,
+      (unsyncedCount: number) => {
+        setDevice(null)
+        setCollision(false)
+        if (unsyncedCount > 0) {
+          setDeviceError(
+            `This till was reclaimed. ${unsyncedCount} unsent record${unsyncedCount !== 1 ? 's are' : ' is'} saved locally and will sync when this browser goes online.`,
+          )
+        }
+        setResolutionTrigger((n) => n + 1)
+      },
+      () => {
+        // Atomic claim rejected — another session is actively using this till.
+        // Invalidate the local binding so the resolution effect doesn't
+        // immediately re-select it, and surface a blocking error.
+        void invalidateDeviceBinding(outletId)
+        setDevice(null)
+        setCollision(false)
+        setDeviceError(
+          'Another browser is actively using this till. Use Force Re-claim from Back office › Tills to take it over.',
+        )
+      },
+    )
 
     return () => handle.stop()
+    // staffId intentionally omitted from deps: changing who's logged in
+    // shouldn't restart the heartbeat, and the audit entry captures whoever
+    // was active when the reclaim happened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, outletId])
 
   function chooseExisting(chosen: Device) {

@@ -4,10 +4,16 @@ import { getDeviceIdForOutlet, setDeviceIdForOutlet } from '../../lib/localSessi
 import type { Device } from '../../lib/types'
 import { startDeviceHeartbeat } from './heartbeat'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
+const { fromMock, rpcMock } = vi.hoisted(() => ({ fromMock: vi.fn(), rpcMock: vi.fn() }))
 
 vi.mock('../../lib/supabase', () => ({
-  supabase: { from: fromMock },
+  supabase: {
+    from: fromMock,
+    rpc: rpcMock,
+    auth: { getSession: async () => ({ data: { session: { access_token: 'test-token' } } }) },
+  },
+  supabaseUrl: 'https://test.supabase.co',
+  supabaseAnonKey: 'test-anon-key',
 }))
 
 const DEVICE: Device = {
@@ -54,16 +60,38 @@ beforeEach(async () => {
   await db.device_bindings.clear()
   localStorage.clear()
   fromMock.mockReset()
+  rpcMock.mockReset()
+  // Default: RPC claim succeeds (most tests exercise periodic-beat behavior)
+  rpcMock.mockResolvedValue({ data: { status: 'claimed' }, error: null })
 })
 
 describe('startDeviceHeartbeat', () => {
-  it('writes last_seen_at/session_id/user_agent on the first beat', async () => {
+  it('claims the device via RPC on the first beat', async () => {
+    fromMock.mockImplementation(
+      makeFromMock({ selectResult: { data: null, error: null } }),
+    )
+
+    const onCollision = vi.fn()
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', onCollision, vi.fn(), vi.fn(), LONG_INTERVAL_MS)
+    await sleep(FIRST_BEAT_WAIT_MS)
+    handle.stop()
+
+    expect(rpcMock).toHaveBeenCalledWith('claim_pos_till', {
+      p_device_id: DEVICE.id,
+      p_session_id: handle.sessionId,
+      p_user_agent: navigator.userAgent,
+    })
+    expect(onCollision).toHaveBeenCalledWith(false)
+  })
+
+  it('falls back to legacy beat when the RPC is unavailable', async () => {
+    rpcMock.mockRejectedValue(new Error('function not found'))
     const updates: Record<string, unknown>[] = []
     fromMock.mockImplementation(
       makeFromMock({ selectResult: { data: null, error: null }, onUpdate: (p) => updates.push(p) }),
     )
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', vi.fn(), vi.fn(), LONG_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', vi.fn(), vi.fn(), vi.fn(), LONG_INTERVAL_MS)
     await sleep(FIRST_BEAT_WAIT_MS)
     handle.stop()
 
@@ -75,14 +103,31 @@ describe('startDeviceHeartbeat', () => {
     })
   })
 
+  it('rejects when the RPC returns a conflict', async () => {
+    rpcMock.mockResolvedValue({
+      data: { status: 'conflict', active_session_id: 'other', last_seen_at: new Date().toISOString() },
+      error: null,
+    })
+    fromMock.mockImplementation(
+      makeFromMock({ selectResult: { data: null, error: null } }),
+    )
+    const onClaimRejected = vi.fn()
+
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', vi.fn(), vi.fn(), onClaimRejected, LONG_INTERVAL_MS)
+    await sleep(FIRST_BEAT_WAIT_MS)
+    handle.stop()
+
+    expect(onClaimRejected).toHaveBeenCalledTimes(1)
+  })
+
   it('ticks again after intervalMs', async () => {
     const updates: Record<string, unknown>[] = []
     fromMock.mockImplementation(
       makeFromMock({ selectResult: { data: null, error: null }, onUpdate: (p) => updates.push(p) }),
     )
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', vi.fn(), vi.fn(), TEST_INTERVAL_MS)
-    await sleep(TEST_INTERVAL_MS * 3.5)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', vi.fn(), vi.fn(), vi.fn(), TEST_INTERVAL_MS)
+    await sleep(TEST_INTERVAL_MS * 6)
     handle.stop()
 
     expect(updates.length).toBeGreaterThanOrEqual(2)
@@ -94,7 +139,7 @@ describe('startDeviceHeartbeat', () => {
       makeFromMock({ selectResult: { data: null, error: null }, onUpdate: (p) => updates.push(p) }),
     )
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', vi.fn(), vi.fn(), TEST_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', vi.fn(), vi.fn(), vi.fn(), TEST_INTERVAL_MS)
     await sleep(FIRST_BEAT_WAIT_MS)
     handle.stop()
     const countAfterStop = updates.length
@@ -119,7 +164,7 @@ describe('startDeviceHeartbeat', () => {
     )
     const onCollision = vi.fn()
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', onCollision, vi.fn(), TEST_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', onCollision, vi.fn(), vi.fn(), TEST_INTERVAL_MS)
     await sleep(FIRST_BEAT_WAIT_MS)
     handle.stop()
 
@@ -141,7 +186,7 @@ describe('startDeviceHeartbeat', () => {
     )
     const onCollision = vi.fn()
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', onCollision, vi.fn(), TEST_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', onCollision, vi.fn(), vi.fn(), TEST_INTERVAL_MS)
     await sleep(FIRST_BEAT_WAIT_MS)
     handle.stop()
 
@@ -175,7 +220,7 @@ describe('startDeviceHeartbeat', () => {
     })
     const onCollision = vi.fn()
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', onCollision, vi.fn(), TEST_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', onCollision, vi.fn(), vi.fn(), TEST_INTERVAL_MS)
     await sleep(TEST_INTERVAL_MS * 2.5)
     handle.stop()
 
@@ -186,6 +231,11 @@ describe('startDeviceHeartbeat', () => {
     await db.devices.add(DEVICE)
     setDeviceIdForOutlet('outlet-1', DEVICE.id)
     await db.device_bindings.put({ outlet_id: 'outlet-1', device_id: DEVICE.id })
+
+    // Force the legacy first-beat path so force-reclaim is detected on
+    // the very first beat (the RPC claim path doesn't check force-reclaim
+    // — it clears stale flags as part of the claim instead).
+    rpcMock.mockRejectedValue(new Error('offline'))
 
     let clearedFlag = false
     fromMock.mockImplementation(
@@ -208,8 +258,10 @@ describe('startDeviceHeartbeat', () => {
     const handle = startDeviceHeartbeat(
       DEVICE,
       'outlet-1',
+      'staff-1',
       vi.fn(),
       onForceReclaimed,
+      vi.fn(),
       LONG_INTERVAL_MS,
     )
     await sleep(FIRST_BEAT_WAIT_MS)
@@ -223,11 +275,12 @@ describe('startDeviceHeartbeat', () => {
 
   it('does not throw when a beat fails, and logs it instead', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rpcMock.mockRejectedValue(new Error('network down'))
     fromMock.mockImplementation(() => {
       throw new Error('network down')
     })
 
-    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', vi.fn(), vi.fn(), LONG_INTERVAL_MS)
+    const handle = startDeviceHeartbeat(DEVICE, 'outlet-1', 'staff-1', vi.fn(), vi.fn(), vi.fn(), LONG_INTERVAL_MS)
     await sleep(FIRST_BEAT_WAIT_MS)
     handle.stop()
 

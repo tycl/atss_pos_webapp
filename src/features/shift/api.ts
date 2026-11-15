@@ -64,6 +64,36 @@ export async function sumCashSalesSince(deviceId: string, openedAt: string): Pro
   return total
 }
 
+/**
+ * System-initiated shift close for force-reclaim or crash recovery.
+ * Sets closed_at but leaves closed_by null (no cashier counted the
+ * drawer) and counted_cash_sen/variance_sen null (unknown). Callers
+ * distinguish a force-closed shift from a never-closed one by checking
+ * closed_at IS NOT NULL AND closed_by IS NULL.
+ */
+export async function forceCloseShift(shiftId: string): Promise<Shift> {
+  const shift = await db.shifts.get(shiftId)
+  if (!shift) throw new Error(`Shift not found: ${shiftId}`)
+  if (shift.closed_at !== null) return shift
+
+  const cashSales = await sumCashSalesSince(shift.device_id, shift.opened_at)
+  const expectedCashSen = shift.opening_float_sen + cashSales
+
+  const updated: Shift = {
+    ...shift,
+    closed_by: null,
+    closed_at: new Date().toISOString(),
+    counted_cash_sen: null,
+    expected_cash_sen: expectedCashSen,
+    variance_sen: null,
+  }
+
+  await db.shifts.put(updated)
+  await enqueue('shifts', 'upsert', { ...updated })
+
+  return updated
+}
+
 export async function closeShift(
   shiftId: string,
   countedCashSen: number,

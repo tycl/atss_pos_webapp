@@ -81,7 +81,7 @@ export function PosHome() {
   )
 
   const { device, deviceError, claimableDevices, chooseExisting, chooseNew, collision } =
-    useActiveDevice(merchantId, outletId)
+    useActiveDevice(merchantId, outletId, staff?.id ?? null)
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [popupItem, setPopupItem] = useState<Item | null>(null)

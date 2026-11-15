@@ -74,20 +74,33 @@ describe('setTillActive', () => {
 
 describe('requestForceReclaim', () => {
   it('sets force_reclaim_requested_at to a timestamp and returns the saved row', async () => {
-    const saved = { id: 'device-1', force_reclaim_requested_at: '2026-01-01T00:00:00.000Z' }
+    const saved = {
+      id: 'device-1',
+      label: 'Device 1',
+      force_reclaim_requested_at: '2026-01-01T00:00:00.000Z',
+    }
     const updateMock = vi.fn(() => ({
       eq: () => ({ select: () => ({ single: async () => ({ data: saved, error: null }) }) }),
     }))
+    const insertMock = vi.fn(async () => ({ error: null }))
     fromMock.mockImplementation((table: string) => {
       if (table === 'devices') return { update: updateMock }
+      if (table === 'audit_log') return { insert: insertMock }
       throw new Error(`unexpected table in test: ${table}`)
     })
 
-    const result = await requestForceReclaim('device-1')
+    const result = await requestForceReclaim('device-1', 'merchant-1', 'staff-1')
 
     expect(updateMock).toHaveBeenCalledWith({
       force_reclaim_requested_at: expect.any(String),
     })
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: 'merchant-1',
+        staff_id: 'staff-1',
+        action: 'force_reclaim_requested',
+      }),
+    )
     expect(result).toEqual(saved)
   })
 
@@ -99,6 +112,6 @@ describe('requestForceReclaim', () => {
       }),
     }))
 
-    await expect(requestForceReclaim('device-1')).rejects.toBe(writeError)
+    await expect(requestForceReclaim('device-1', 'merchant-1', 'staff-1')).rejects.toBe(writeError)
   })
 })

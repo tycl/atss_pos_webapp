@@ -47,6 +47,17 @@ inventory/recipe deduction, loyalty.
 - NEVER run `git commit` or `git push` without asking the user first.
 - Ask before adding any new npm dependency.
 
+### Pre-completion verification
+
+Before concluding any task that modifies POS checkout, till selection,
+or database migrations:
+
+1. Run `npx tsc --noEmit` to ensure zero TypeScript errors.
+2. Run `npm run lint` to verify React Hook dependency rules (especially
+   cleanup of heartbeat intervals).
+3. Verify that all new Supabase RPC functions have explicit `GRANT EXECUTE`
+   permissions for the `authenticated` role.
+
 ## 4. Multi-tenant from day one
 
 This is a product sold to many shops. Every table has `merchant_id`
@@ -188,7 +199,83 @@ android/        Capacitor Android project
 print-bridge/    local print-bridge agent (web POS printer/drawer helper)
 ```
 
-## 12. Working rules to save usage
+## 12. Core architectural invariants (till & session safety)
+
+These rules prevent the real production bugs — duplicate receipt numbers,
+phantom tills, orphaned shifts, and two cashiers unknowingly sharing one
+till — that surface once multiple tablets/browsers serve a single outlet.
+
+### 12a. POS session & till locking
+
+- **Never rely on browser-only till state.** Do not use `localStorage` or
+  cookies alone to assign or persist a browser's active POS till. All till
+  identity is stored redundantly (localStorage + Dexie `device_bindings`)
+  and validated against the real `devices` row in Supabase before use
+  (`getCachedActiveDevice`).
+- **Per-window session isolation.** Each browser tab generates a unique UUID
+  via `crypto.randomUUID()` inside `startDeviceHeartbeat`. Two different
+  browsers (e.g. Chrome vs. Edge) or separate browser profiles on the same
+  machine must resolve to distinct session IDs.
+- **Stale-lock recovery.** A till whose `last_seen_at` is older than
+  `COLLISION_WINDOW_MS` (2 minutes) is considered stale. The heartbeat
+  detects this and shows a non-blocking collision banner; the back-office
+  Tills Management page can force-reclaim it via `force_reclaim_requested_at`.
+- **Heartbeat & eviction enforcement:**
+  - Active POS screens must run `startDeviceHeartbeat`, which pings
+    `devices.last_seen_at` / `session_id` every `HEARTBEAT_INTERVAL_MS`
+    (60 s).
+  - If a heartbeat discovers a `force_reclaim_requested_at` flag, it
+    immediately calls `invalidateDeviceBinding`, clears local till state,
+    and fires `onForceReclaimed` so the "which till is this?" picker
+    reappears.
+- **Graceful release.** Release the till binding on explicit logout.
+  Attach a `beforeunload` handler (or `navigator.sendBeacon` to a
+  Supabase Edge Function / local endpoint) so closing a tab frees the
+  register without waiting for the 2-minute stale-lock timeout.
+- **Claim flow.** When a browser has no cached device and other active
+  devices exist for the outlet, pause and show the claimable-till picker
+  (`useActiveDevice` → `claimableDevices`) instead of always minting a
+  new device row.
+
+### 12b. Atomic receipt & invoice numbering
+
+- **Zero client-side sequencing for paid receipts.** Never generate,
+  increment, or cache final receipt/invoice numbers in React state,
+  `localStorage`, or browser memory where two tills could collide.
+- **Offline receipt numbers.** For MVP the format
+  `<device prefix>-<YYYYMMDD>-<running no>` is generated locally
+  (section 7). Because each device row has a unique `receipt_prefix`
+  and each browser binds to exactly one device, collisions are prevented
+  by the per-device identity — **not** by a global counter. If the
+  system ever moves to database-assigned numbers (e.g. for tax invoices),
+  use a PostgreSQL sequence or `SELECT … FOR UPDATE` inside
+  `finalize_pos_order` so concurrent tills never produce duplicate or
+  skipped numbers.
+
+### 12c. Shift & cash drawer integrity
+
+- **Prevent orphaned shifts.** Do not allow closing or force-resetting a
+  till if an unclosed shift has unrecorded cash movements without logging
+  an audit trail event (`audit_log`) capturing `previous_session_id`,
+  `new_session_id`, `forced_by_user_id`, and `timestamp`.
+
+## 13. Vite / React Router / Supabase conventions
+
+- **Client-side only constructs.** `sessionStorage`, `navigator.sendBeacon`,
+  and heartbeat `setInterval` hooks belong strictly inside React hooks or
+  components (e.g. `useActiveDevice`, `startDeviceHeartbeat`). Never put
+  them in utility modules that might run during SSR or testing without a
+  browser.
+- **Supabase RPC.** All database mutations that require atomicity (till
+  claims, order finalization, shift close) must go through a Supabase RPC
+  function, not a raw `.update()` from the client. The RPC function handles
+  locking, sequencing, and RLS in a single transaction.
+- **Migrations.** All schema changes, RPC functions, and RLS policies must
+  be written as idempotent SQL files inside `supabase/migrations/` with
+  descriptive timestamps. Never instruct the user to apply schema changes
+  manually via the Supabase dashboard without providing the migration file.
+
+## 14. Working rules to save usage
 
 - ONE small task per request. Confirm the plan in 3–5 bullet points first.
 - Do not read `node_modules`, `dist`, `android/build`, or lock files.

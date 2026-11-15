@@ -46,7 +46,11 @@ export async function setTillActive(deviceId: string, active: boolean): Promise<
  * (so the "which till is this?" picker reappears there) and clears this
  * flag. Not instant: takes effect within one heartbeat interval.
  */
-export async function requestForceReclaim(deviceId: string): Promise<Device> {
+export async function requestForceReclaim(
+  deviceId: string,
+  merchantId: string,
+  staffId: string,
+): Promise<Device> {
   const { data, error } = await supabase
     .from('devices')
     .update({ force_reclaim_requested_at: new Date().toISOString() })
@@ -54,5 +58,19 @@ export async function requestForceReclaim(deviceId: string): Promise<Device> {
     .select()
     .single()
   if (error) throw error
+
+  await supabase.from('audit_log').insert({
+    id: crypto.randomUUID(),
+    merchant_id: merchantId,
+    staff_id: staffId,
+    action: 'force_reclaim_requested',
+    details: {
+      device_id: deviceId,
+      device_label: data.label,
+      requested_at: new Date().toISOString(),
+    },
+    created_at: new Date().toISOString(),
+  })
+
   return data
 }

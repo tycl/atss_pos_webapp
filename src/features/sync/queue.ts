@@ -4,6 +4,7 @@ import { nextSeq } from '../../lib/sequence'
 import { supabase } from '../../lib/supabase'
 import type { SyncOp, SyncQueueItem } from '../../lib/types'
 import { reassignDeviceReceiptPrefix } from './deviceConflictResolution'
+import { reassignOrderNumber } from './orderConflictResolution'
 
 type QueueChangedListener = () => void
 const queueChangedListeners = new Set<QueueChangedListener>()
@@ -52,6 +53,11 @@ export async function enqueue(table: string, op: SyncOp, payload: Record<string,
 
 export async function getPendingCount(): Promise<number> {
   return db.sync_queue.count()
+}
+
+export async function getPendingCountForDevice(deviceId: string): Promise<number> {
+  const items = await db.sync_queue.toArray()
+  return items.filter((item) => item.payload.device_id === deviceId).length
 }
 
 /** Pure: builds and sends the one Supabase call for a queue item. Throws on failure. */
@@ -185,6 +191,18 @@ export async function drainOnce(): Promise<{ pushed: number; remaining: number }
               await reassignDeviceReceiptPrefix(item)
             } catch (reassignErr) {
               console.error('sync queue: could not reassign a conflicting receipt_prefix', {
+                itemId: item.id,
+                reassignErr,
+              })
+            }
+            continue
+          }
+
+          if (item.table === 'orders' && item.op === 'upsert' && pg?.code === '23505') {
+            try {
+              await reassignOrderNumber(item)
+            } catch (reassignErr) {
+              console.error('sync queue: could not reassign a conflicting order_no', {
                 itemId: item.id,
                 reassignErr,
               })

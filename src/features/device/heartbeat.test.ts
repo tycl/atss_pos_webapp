@@ -59,6 +59,7 @@ beforeEach(async () => {
   await db.devices.clear()
   await db.device_bindings.clear()
   localStorage.clear()
+  sessionStorage.clear()
   fromMock.mockReset()
   rpcMock.mockReset()
   // Default: RPC claim succeeds (most tests exercise periodic-beat behavior)

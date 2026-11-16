@@ -1,4 +1,5 @@
 import { db } from '../../lib/db'
+import { getTabSessionId } from '../../lib/localSession'
 import { supabase, supabaseAnonKey, supabaseUrl } from '../../lib/supabase'
 import type { AuditLog, Device } from '../../lib/types'
 import { drainOnce, enqueue, getPendingCountForDevice } from '../sync/queue'
@@ -49,7 +50,10 @@ export function startDeviceHeartbeat(
   // real (fake-indexeddb-backed) Dexie calls in invalidateDeviceBinding.
   intervalMs: number = HEARTBEAT_INTERVAL_MS,
 ): HeartbeatHandle {
-  const sessionId = crypto.randomUUID()
+  // Persisted per-tab, not freshly random — see getTabSessionId's doc for
+  // why: it's what lets this exact tab reclaim its own till immediately
+  // after a reload instead of looking like a conflicting second browser.
+  const sessionId = getTabSessionId()
   let stopped = false
   let intervalId: ReturnType<typeof setInterval> | null = null
 

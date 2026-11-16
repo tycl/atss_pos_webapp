@@ -212,10 +212,14 @@ till — that surface once multiple tablets/browsers serve a single outlet.
   identity is stored redundantly (localStorage + Dexie `device_bindings`)
   and validated against the real `devices` row in Supabase before use
   (`getCachedActiveDevice`).
-- **Per-window session isolation.** Each browser tab generates a unique UUID
-  via `crypto.randomUUID()` inside `startDeviceHeartbeat`. Two different
-  browsers (e.g. Chrome vs. Edge) or separate browser profiles on the same
-  machine must resolve to distinct session IDs.
+- **Per-window session isolation.** Each browser tab's session id is a UUID
+  persisted in `sessionStorage` (`getTabSessionId`, `lib/localSession.ts`),
+  read by `startDeviceHeartbeat`. `sessionStorage` is isolated per tab, so
+  two different browsers (e.g. Chrome vs. Edge), separate browser profiles,
+  or two tabs open side by side on the same machine still resolve to
+  distinct session IDs — but the SAME tab keeps its id across a reload, so
+  it can reclaim its own till immediately after a crash, battery loss, or
+  network blip instead of being read as a second, conflicting browser.
 - **Stale-lock recovery.** A till whose `last_seen_at` is older than
   `COLLISION_WINDOW_MS` (2 minutes) is considered stale. The heartbeat
   detects this and shows a non-blocking collision banner; the back-office

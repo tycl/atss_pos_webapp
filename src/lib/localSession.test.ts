@@ -6,6 +6,7 @@ import {
   getActiveMerchantId,
   getActiveOutletId,
   getDeviceIdForOutlet,
+  getTabSessionId,
   setActiveDeviceId,
   setActiveMerchantId,
   setActiveOutletId,
@@ -14,6 +15,7 @@ import {
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
 })
 
 describe('localSession', () => {
@@ -76,5 +78,25 @@ describe('per-outlet device binding', () => {
     clearDeviceIdForOutlet('outlet-1')
     expect(getDeviceIdForOutlet('outlet-1')).toBeNull()
     expect(getDeviceIdForOutlet('outlet-2')).toBe('device-2')
+  })
+})
+
+describe('getTabSessionId', () => {
+  it('returns the same id on every call within the same tab', () => {
+    const first = getTabSessionId()
+    const second = getTabSessionId()
+    expect(second).toBe(first)
+  })
+
+  it('persists across simulated reloads (sessionStorage, not just in-memory)', () => {
+    const first = getTabSessionId()
+    expect(sessionStorage.getItem('atss-pos:tab-session-id')).toBe(first)
+  })
+
+  it('is isolated from localStorage — clearing sessionStorage alone resets it', () => {
+    const first = getTabSessionId()
+    sessionStorage.clear()
+    const second = getTabSessionId()
+    expect(second).not.toBe(first)
   })
 })

@@ -11,6 +11,7 @@ const OUTLET_ID_KEY = 'atss-pos:active-outlet-id'
 // nothing writes to it anymore.
 const DEVICE_ID_KEY = 'atss-pos:active-device-id'
 const DEVICE_ID_PREFIX = 'atss-pos:device-id:'
+const TAB_SESSION_ID_KEY = 'atss-pos:tab-session-id'
 
 export function getActiveMerchantId(): string | null {
   return localStorage.getItem(MERCHANT_ID_KEY)
@@ -48,6 +49,26 @@ export function setDeviceIdForOutlet(outletId: string, deviceId: string): void {
 
 export function clearDeviceIdForOutlet(outletId: string): void {
   localStorage.removeItem(DEVICE_ID_PREFIX + outletId)
+}
+
+/**
+ * Stable per-tab identity for till claims (features/device/heartbeat.ts).
+ * Persisted in sessionStorage — not localStorage — so it's isolated per tab
+ * (two tabs in the same browser still get distinct ids, preserving
+ * CLAUDE.md section 12a's "per-window session isolation") while surviving
+ * a reload of THIS tab. That survival is what matters: without it, a tab
+ * that reloads after a crash, battery loss, or network blip generates a
+ * brand-new id and the claim_pos_till RPC reads it as a different browser
+ * holding the till, blocking the till for up to COLLISION_WINDOW_MS even
+ * though it's the same device reconnecting to itself.
+ */
+export function getTabSessionId(): string {
+  let id = sessionStorage.getItem(TAB_SESSION_ID_KEY)
+  if (!id) {
+    id = crypto.randomUUID()
+    sessionStorage.setItem(TAB_SESSION_ID_KEY, id)
+  }
+  return id
 }
 
 export function clearActiveMerchant(): void {

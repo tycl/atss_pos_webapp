@@ -1,5 +1,7 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom'
+import { ForgotPasswordPage } from '../features/auth/pages/ForgotPasswordPage'
 import { OnboardingPage } from '../features/auth/pages/OnboardingPage'
+import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage'
 import { SignInPage } from '../features/auth/pages/SignInPage'
 import { SignUpPage } from '../features/auth/pages/SignUpPage'
 import { StaffLoginPage } from '../features/auth/pages/StaffLoginPage'
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
   { path: '/welcome', element: <WelcomePage /> },
   { path: '/signup', element: <SignUpPage /> },
   { path: '/signin', element: <SignInPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/onboarding', element: <OnboardingPage /> },
   { path: '/login', element: <StaffLoginPage /> },
   { path: '/pos', element: <PosHome /> },

@@ -113,6 +113,12 @@ export function SignInPage() {
           />
         </label>
 
+        <p className="text-right text-sm">
+          <Link to="/forgot-password" className="underline text-slate-500">
+            Forgot password?
+          </Link>
+        </p>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button

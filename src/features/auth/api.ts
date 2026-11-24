@@ -15,6 +15,18 @@ export async function signInOwner(email: string, password: string): Promise<void
   if (error) throw error
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) throw error
+}
+
+export async function updateOwnPassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
 export interface CreateMerchantInput {
   merchantName: string
   outletName: string

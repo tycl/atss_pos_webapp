@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../lib/db'
-import { createMerchantWithOutlet } from './api'
+import { createMerchantWithOutlet, requestPasswordReset, updateOwnPassword } from './api'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
+const { fromMock, resetPasswordForEmailMock, updateUserMock } = vi.hoisted(() => ({
+  fromMock: vi.fn(),
+  resetPasswordForEmailMock: vi.fn(),
+  updateUserMock: vi.fn(),
+}))
 
 vi.mock('../../lib/supabase', () => ({
-  supabase: { from: fromMock },
+  supabase: {
+    from: fromMock,
+    auth: { resetPasswordForEmail: resetPasswordForEmailMock, updateUser: updateUserMock },
+  },
 }))
 
 const merchantInsert = vi.fn()
@@ -15,6 +22,8 @@ beforeEach(() => {
   merchantInsert.mockReset()
   merchantEq.mockReset()
   fromMock.mockReset()
+  resetPasswordForEmailMock.mockReset().mockResolvedValue({ error: null })
+  updateUserMock.mockReset().mockResolvedValue({ error: null })
 
   // The merchants insert resolves to a plain result with no .select() to chain:
   // chaining it on real Postgres fails the SELECT policy with 42501, because the
@@ -81,5 +90,37 @@ describe('createMerchantWithOutlet', () => {
     await expect(
       createMerchantWithOutlet({ merchantName: 'Kopi Corner', outletName: 'Main' }),
     ).rejects.toBe(readError)
+  })
+})
+
+describe('requestPasswordReset', () => {
+  it('asks Supabase to email a reset link with a redirect back to /reset-password', async () => {
+    await requestPasswordReset('owner@example.com')
+
+    expect(resetPasswordForEmailMock).toHaveBeenCalledWith('owner@example.com', {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+  })
+
+  it('throws when Supabase returns an error', async () => {
+    const resetError = new Error('rate limited')
+    resetPasswordForEmailMock.mockResolvedValue({ error: resetError })
+
+    await expect(requestPasswordReset('owner@example.com')).rejects.toBe(resetError)
+  })
+})
+
+describe('updateOwnPassword', () => {
+  it('asks Supabase to update the current session user password', async () => {
+    await updateOwnPassword('new-password-123')
+
+    expect(updateUserMock).toHaveBeenCalledWith({ password: 'new-password-123' })
+  })
+
+  it('throws when Supabase returns an error', async () => {
+    const updateError = new Error('Auth session missing')
+    updateUserMock.mockResolvedValue({ error: updateError })
+
+    await expect(updateOwnPassword('new-password-123')).rejects.toBe(updateError)
   })
 })

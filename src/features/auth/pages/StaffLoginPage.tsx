@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { NumberPad } from '../../../components/NumberPad'
 import { db } from '../../../lib/db'
-import { clearActiveMerchant, getActiveOutletId } from '../../../lib/localSession'
+import { clearActiveMerchant, getActiveMerchantId, getActiveOutletId } from '../../../lib/localSession'
 import { useLiveQuery } from '../../../lib/useLiveQuery'
 import { ConfirmButton } from '../../menu/components/ConfirmButton'
 import { verifyStaffPin } from '../pinLogin'
@@ -15,12 +15,15 @@ export function StaffLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
 
+  const merchantId = getActiveMerchantId()
   const outletId = getActiveOutletId()
   const outlet = useLiveQuery(
     () => (outletId ? db.outlets.get(outletId).then((o) => o ?? null) : Promise.resolve(null)),
     [outletId],
     null,
   )
+
+  if (!merchantId) return <Navigate to="/welcome" replace />
 
   function handleResetDevice() {
     logout()

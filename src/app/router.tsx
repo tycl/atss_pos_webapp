@@ -3,6 +3,7 @@ import { OnboardingPage } from '../features/auth/pages/OnboardingPage'
 import { SignInPage } from '../features/auth/pages/SignInPage'
 import { SignUpPage } from '../features/auth/pages/SignUpPage'
 import { StaffLoginPage } from '../features/auth/pages/StaffLoginPage'
+import { WelcomePage } from '../features/auth/pages/WelcomePage'
 import { TillsManagementPage } from '../features/device/pages/TillsManagementPage'
 import { MenuManagementPage } from '../features/menu/pages/MenuManagementPage'
 import { OutletManagementPage } from '../features/outlet/pages/OutletManagementPage'
@@ -23,6 +24,7 @@ import { RequirePlatformAdmin } from './platform-admin/RequirePlatformAdmin'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
+  { path: '/welcome', element: <WelcomePage /> },
   { path: '/signup', element: <SignUpPage /> },
   { path: '/signin', element: <SignInPage /> },
   { path: '/onboarding', element: <OnboardingPage /> },

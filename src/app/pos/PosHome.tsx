@@ -315,7 +315,11 @@ export function PosHome() {
                 No menu set up yet. Add categories and items from the back office.
               </p>
             ) : (
-              <ItemGrid items={visibleItems} onSelect={handleItemClick} />
+              <ItemGrid
+                items={visibleItems}
+                onSelect={handleItemClick}
+                showPhotos={settings?.show_item_photos ?? false}
+              />
             )}
           </div>
         </div>

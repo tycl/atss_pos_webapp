@@ -89,6 +89,9 @@ export interface Settings {
   // Defaults to http://localhost:7777 (the common case: agent and browser
   // on the same counter PC) but is overridable per outlet.
   print_bridge_url: string | null
+  // Off by default so existing outlets' POS grids look the same until an
+  // owner opts in after adding photos to their items.
+  show_item_photos: boolean
 }
 
 export interface Category {
@@ -106,6 +109,10 @@ export interface Item {
   price_sen: number
   active: boolean
   sort_order: number
+  // Optional, unlike Settings' url fields: Item literals are hand-built
+  // across many test fixtures, and this is a cosmetic field only — undefined
+  // and null both mean "no photo."
+  image_url?: string | null
 }
 
 export interface ModifierGroup {

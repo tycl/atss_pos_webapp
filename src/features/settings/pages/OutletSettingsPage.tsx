@@ -43,6 +43,7 @@ export function OutletSettingsPage() {
         cash_rounding_enabled: form.get('cash_rounding_enabled') === 'on',
         duitnow_qr_url: String(form.get('duitnow_qr_url') || '').trim() || null,
         print_bridge_url: String(form.get('print_bridge_url') || '').trim() || null,
+        show_item_photos: form.get('show_item_photos') === 'on',
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -110,6 +111,16 @@ export function OutletSettingsPage() {
               className="h-4 w-4"
             />
             <span className="font-medium text-slate-800">Round cash totals to nearest 5 sen</span>
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="show_item_photos"
+              defaultChecked={settings?.show_item_photos}
+              className="h-4 w-4"
+            />
+            <span className="font-medium text-slate-800">Show item photos on the POS screen</span>
           </label>
 
           <label className="block text-sm text-slate-600">

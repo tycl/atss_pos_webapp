@@ -87,6 +87,7 @@ export async function createMerchantWithOutlet(input: CreateMerchantInput) {
     cash_rounding_enabled: false,
     duitnow_qr_url: null,
     print_bridge_url: null,
+    show_item_photos: false,
   }
 
   const { error: settingsError } = await supabase.from('settings').insert(defaultSettings)

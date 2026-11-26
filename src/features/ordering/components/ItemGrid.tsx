@@ -18,28 +18,61 @@ function accentForCategory(categoryId: string): string {
   return ACCENT_PALETTE[hash % ACCENT_PALETTE.length]
 }
 
-export function ItemGrid({ items, onSelect }: { items: Item[]; onSelect: (item: Item) => void }) {
+export function ItemGrid({
+  items,
+  onSelect,
+  showPhotos = false,
+}: {
+  items: Item[]
+  onSelect: (item: Item) => void
+  showPhotos?: boolean
+}) {
   if (items.length === 0) {
     return <p className="p-6 text-sm text-slate-500">No items in this category.</p>
   }
 
   return (
     <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => onSelect(item)}
-          className={`flex h-24 flex-col items-start justify-between rounded-xl border border-l-4 border-slate-200 bg-white p-3 text-left shadow-card transition hover:shadow-md active:bg-primary-50 ${accentForCategory(
-            item.category_id,
-          )}`}
-        >
-          <span className="text-[15px] font-medium leading-snug text-slate-800">{item.name}</span>
-          <span className="text-sm font-semibold text-slate-700">
-            {formatSenAsRM(item.price_sen)}
-          </span>
-        </button>
-      ))}
+      {items.map((item) =>
+        showPhotos ? (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item)}
+            className={`flex h-40 flex-col overflow-hidden rounded-xl border border-l-4 border-slate-200 bg-white text-left shadow-card transition hover:shadow-md active:bg-primary-50 ${accentForCategory(
+              item.category_id,
+            )}`}
+          >
+            <div className="h-20 w-full shrink-0 bg-slate-100">
+              {item.image_url && (
+                <img src={item.image_url} alt="" className="h-full w-full object-cover" />
+              )}
+            </div>
+            <div className="flex flex-1 flex-col items-start justify-between p-3">
+              <span className="text-[15px] font-medium leading-snug text-slate-800">
+                {item.name}
+              </span>
+              <span className="text-sm font-semibold text-slate-700">
+                {formatSenAsRM(item.price_sen)}
+              </span>
+            </div>
+          </button>
+        ) : (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item)}
+            className={`flex h-24 flex-col items-start justify-between rounded-xl border border-l-4 border-slate-200 bg-white p-3 text-left shadow-card transition hover:shadow-md active:bg-primary-50 ${accentForCategory(
+              item.category_id,
+            )}`}
+          >
+            <span className="text-[15px] font-medium leading-snug text-slate-800">{item.name}</span>
+            <span className="text-sm font-semibold text-slate-700">
+              {formatSenAsRM(item.price_sen)}
+            </span>
+          </button>
+        ),
+      )}
     </div>
   )
 }

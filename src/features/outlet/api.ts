@@ -32,6 +32,7 @@ export async function createOutlet(input: {
     cash_rounding_enabled: false,
     duitnow_qr_url: null,
     print_bridge_url: null,
+    show_item_photos: false,
   }
   await db.settings.put(settings)
   await enqueue('settings', 'upsert', { ...settings })

@@ -29,6 +29,7 @@ const allOffSettings: Settings = {
   cash_rounding_enabled: false,
   duitnow_qr_url: null,
   print_bridge_url: null,
+  show_item_photos: false,
 }
 
 function tehAis(overrides: Partial<CartLine> = {}): CartLine {
@@ -246,7 +247,13 @@ describe('applyDiscount', () => {
       settings: allOffSettings,
     })
 
-    const updated = await applyDiscount(order.id, 'manager-1', 100, 'Regular customer', allOffSettings)
+    const updated = await applyDiscount(
+      order.id,
+      'manager-1',
+      100,
+      'Regular customer',
+      allOffSettings,
+    )
     expect(updated.discount_sen).toBe(100)
     expect(updated.discount_reason).toBe('Regular customer')
     expect(updated.total_sen).toBe(400)

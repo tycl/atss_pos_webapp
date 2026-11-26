@@ -16,6 +16,7 @@ const allOffSettings: Settings = {
   cash_rounding_enabled: false,
   duitnow_qr_url: null,
   print_bridge_url: null,
+  show_item_photos: false,
 }
 
 function openOrder(overrides: Partial<Order> = {}): Order {

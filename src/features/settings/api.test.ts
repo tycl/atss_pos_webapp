@@ -15,6 +15,7 @@ const initial: Settings = {
   cash_rounding_enabled: false,
   duitnow_qr_url: null,
   print_bridge_url: null,
+  show_item_photos: false,
 }
 
 beforeEach(async () => {

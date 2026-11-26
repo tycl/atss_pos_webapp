@@ -66,6 +66,7 @@ export async function createItem(input: {
   name: string
   priceSen: number
   sortOrder: number
+  imageUrl?: string | null
 }): Promise<Item> {
   const item: Item = {
     id: crypto.randomUUID(),
@@ -75,6 +76,7 @@ export async function createItem(input: {
     price_sen: input.priceSen,
     active: true,
     sort_order: input.sortOrder,
+    image_url: input.imageUrl ?? null,
   }
   await db.items.put(item)
   await enqueue('items', 'upsert', { ...item })
@@ -83,7 +85,9 @@ export async function createItem(input: {
 
 export async function updateItem(
   id: string,
-  changes: Partial<Pick<Item, 'name' | 'price_sen' | 'category_id' | 'active' | 'sort_order'>>,
+  changes: Partial<
+    Pick<Item, 'name' | 'price_sen' | 'category_id' | 'active' | 'sort_order' | 'image_url'>
+  >,
 ): Promise<Item> {
   await db.items.update(id, changes)
   const updated = await db.items.get(id)

@@ -31,6 +31,7 @@ const settings: Settings = {
   cash_rounding_enabled: false,
   duitnow_qr_url: null,
   print_bridge_url: null,
+  show_item_photos: false,
 }
 
 function cartLine(i: number): CartLine {

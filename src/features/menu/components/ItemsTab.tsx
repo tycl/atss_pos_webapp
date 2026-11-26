@@ -23,6 +23,7 @@ export function ItemsTab({ merchantId }: { merchantId: string }) {
   const [name, setName] = useState('')
   const [priceInput, setPriceInput] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
 
@@ -48,9 +49,11 @@ export function ItemsTab({ merchantId }: { merchantId: string }) {
         name: name.trim(),
         priceSen,
         sortOrder: maxSortOrder + 1,
+        imageUrl: imageUrl.trim() || null,
       })
       setName('')
       setPriceInput('')
+      setImageUrl('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add item')
     }
@@ -90,6 +93,15 @@ export function ItemsTab({ merchantId }: { merchantId: string }) {
               </option>
             ))}
           </select>
+        </label>
+        <label className="flex flex-col text-sm text-slate-700">
+          Photo URL (optional)
+          <input
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-48 rounded border border-slate-300 px-3 py-2"
+          />
         </label>
         <button type="submit" className="rounded bg-slate-800 px-4 py-2 text-white">
           Add item
@@ -150,6 +162,13 @@ function ItemRow({
   return (
     <li className="px-3 py-2">
       <div className="flex flex-wrap items-center gap-3">
+        {item.image_url && (
+          <img
+            src={item.image_url}
+            alt=""
+            className="h-10 w-10 rounded border border-slate-200 object-cover"
+          />
+        )}
         <input
           defaultValue={item.name}
           onBlur={(e) => {
@@ -187,6 +206,17 @@ function ItemRow({
           />
           Active
         </label>
+        <input
+          defaultValue={item.image_url ?? ''}
+          placeholder="Photo URL"
+          onBlur={(e) => {
+            const value = e.target.value.trim()
+            if (value !== (item.image_url ?? '')) {
+              catchAsync(updateItem(item.id, { image_url: value || null }), setRowError)
+            }
+          }}
+          className="w-36 rounded border border-transparent px-2 py-2 text-sm hover:border-slate-300 focus:border-slate-300"
+        />
         <button
           type="button"
           onClick={onToggleExpanded}
